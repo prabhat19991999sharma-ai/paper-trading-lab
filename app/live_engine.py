@@ -54,6 +54,25 @@ class LiveEngine:
         self.daily_stats: Dict[str, DailyStats] = {}
         self.equity = CONFIG.initial_capital
         self.lock = threading.Lock()
+        
+        # Broker initialization
+        self.broker = None
+        if CONFIG.broker_name == "angel-one":
+            from .broker.angel_one import AngelOneBroker
+            self.broker = AngelOneBroker(
+                CONFIG.angel_api_key, 
+                CONFIG.angel_client_id, 
+                CONFIG.angel_password,
+                CONFIG.angel_totp_key
+            )
+            # Try connecting in a non-blocking way or log status
+            try:
+                if self.broker.connect():
+                    print("Broker connected successfully")
+                else:
+                    print("Broker connection failed")
+            except Exception as e:
+                print(f"Broker init error: {e}")
 
         self.tz = pytz.timezone(CONFIG.timezone)
         self.breakout_time = parse_time(CONFIG.breakout_time)
@@ -67,6 +86,8 @@ class LiveEngine:
             "speed": self.speed,
             "index": self.bar_index,
             "total": len(self.bars),
+            "broker_connected": self.broker is not None,
+            "broker_name": CONFIG.broker_name
         }
 
     def start(self, speed: float = 60.0, reset: bool = True) -> dict:
@@ -229,6 +250,22 @@ class LiveEngine:
                         target=target,
                     )
                     state.trades_today += 1
+                    
+                    # --- BROKER EXECUTION (ENTRY) ---
+                    if self.broker and CONFIG.broker_name != "paper":
+                        try:
+                            # Place Market Order for immediate entry
+                            # Note: Angel needs token mapping. If not found, it errors.
+                            resp = self.broker.place_order(
+                                symbol=symbol,
+                                side="BUY",
+                                qty=qty,
+                                price=0.0,  # Market order
+                                stop_loss=stop_loss
+                            )
+                            print(f"[REAL TRADE] Entry {symbol}: {resp}")
+                        except Exception as e:
+                            print(f"[REAL TRADE ERROR] Entry {symbol}: {e}")
 
         if state.open_trade is not None:
             low = float(bar["low"])
@@ -252,6 +289,21 @@ class LiveEngine:
                     state.open_trade.entry_price - state.open_trade.stop_loss
                 )
                 state.open_trade.status = "closed"
+                
+                # --- BROKER EXECUTION (EXIT) ---
+                if self.broker and CONFIG.broker_name != "paper":
+                    try:
+                        # Place Market Order for exit
+                        resp = self.broker.place_order(
+                            symbol=symbol,
+                            side="SELL",
+                            qty=state.open_trade.qty,
+                            price=0.0
+                        )
+                        print(f"[REAL TRADE] Exit {symbol}: {resp}")
+                    except Exception as e:
+                        print(f"[REAL TRADE ERROR] Exit {symbol}: {e}")
+
                 store_trade(state.open_trade)
 
                 stats.trades += 1
@@ -287,6 +339,7 @@ class LiveEngine:
                         "realized_pnl": stats.realized_pnl,
                         "avg_r": stats.avg_r,
                     },
+                    "broker_order": "sent" if self.broker else "paper"
                 }
                 state.open_trade = None
                 return trade_payload

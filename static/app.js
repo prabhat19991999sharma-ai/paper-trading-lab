@@ -227,6 +227,14 @@ function updateLiveStatus(payload) {
   if (payload.total !== undefined && payload.total !== 0) {
     progress.textContent = `${payload.index || 0}/${payload.total}`;
   }
+
+  // Update Broker Status
+  const brokerEl = el("status-broker");
+  if (payload.broker_name) {
+    brokerEl.textContent = payload.broker_name === "paper" ? "Paper" : "Active";
+    brokerEl.className = "status-badge " + (payload.broker_connected ? "connected" : "paper");
+    if (payload.broker_name === "paper") brokerEl.className = "status-badge paper";
+  }
 }
 
 function updateLiveBar(payload) {

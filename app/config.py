@@ -17,5 +17,12 @@ class AppConfig:
     max_daily_loss: float = -5000.0
     stop_fill_priority: str = "stop"  # "stop" or "target" when both hit in same bar
 
+    # Broker Configuration
+    broker_name: str = "paper"  # "paper" or "angel-one"
+    angel_api_key: str = ""
+    angel_client_id: str = ""
+    angel_password: str = ""
+    angel_totp_key: str = ""
+
 
 CONFIG = AppConfig()
