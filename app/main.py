@@ -1,0 +1,304 @@
+from __future__ import annotations
+
+import asyncio
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import pytz
+from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from .config import CONFIG
+from .data_loader import load_csv_to_db
+from .db import clear_bars, clear_simulation_data, get_connection, init_db
+from .ingest import Bar, BarAggregator, insert_bar
+from .live_engine import ConnectionManager, LiveEngine
+from .simulator import simulate
+from .watchlist import ensure_watchlist, load_watchlist, save_watchlist
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+DATA_DIR = BASE_DIR / "data"
+
+app = FastAPI(title="Paper Trading Lab")
+
+
+class TickIn(BaseModel):
+    ts: str
+    symbol: str
+    price: float
+    volume: float = 0.0
+
+
+class BarIn(BaseModel):
+    ts: str
+    symbol: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float = 0.0
+
+
+class WatchlistIn(BaseModel):
+    symbols: list[str] | str
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    init_db()
+    _auto_load_sample_data_if_empty()
+    app.state.manager = ConnectionManager()
+    app.state.loop = asyncio.get_running_loop()
+    app.state.live_engine = LiveEngine(app.state.manager, app.state.loop)
+    app.state.aggregator = BarAggregator(pytz.timezone(CONFIG.timezone))
+    ensure_watchlist(["RELIANCE"])
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> str:
+    return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    manager: ConnectionManager = app.state.manager
+    await manager.connect(websocket)
+    try:
+        await websocket.send_json({"type": "status", **app.state.live_engine.status()})
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+
+@app.get("/api/status")
+def status() -> JSONResponse:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS count FROM bars;")
+    bars = cur.fetchone()["count"]
+    cur.execute("SELECT COUNT(*) AS count FROM trades;")
+    trades = cur.fetchone()["count"]
+    cur.execute("SELECT date FROM daily_results ORDER BY date DESC LIMIT 1;")
+    row = cur.fetchone()
+    last_date = row["date"] if row else None
+    cur.execute("SELECT finished_at FROM runs ORDER BY id DESC LIMIT 1;")
+    run_row = cur.fetchone()
+    last_run = run_row["finished_at"] if run_row else None
+    conn.close()
+    return JSONResponse(
+        {
+            "bars": bars,
+            "trades": trades,
+            "last_date": last_date,
+            "last_run": last_run,
+            "timezone": CONFIG.timezone,
+        }
+    )
+
+
+@app.get("/api/live/status")
+def live_status() -> JSONResponse:
+    return JSONResponse(app.state.live_engine.status())
+
+
+@app.post("/api/live/start")
+def live_start(speed: float = 60.0, reset: bool = True) -> JSONResponse:
+    result = app.state.live_engine.start(speed=speed, reset=reset)
+    return JSONResponse(result)
+
+
+@app.post("/api/live/stop")
+def live_stop() -> JSONResponse:
+    result = app.state.live_engine.stop()
+    return JSONResponse(result)
+
+
+@app.post("/api/ingest/tick")
+def ingest_tick(tick: TickIn) -> JSONResponse:
+    bar = app.state.aggregator.ingest_tick(
+        ts=tick.ts,
+        symbol=tick.symbol.upper(),
+        price=tick.price,
+        volume=tick.volume,
+    )
+    if bar:
+        insert_bar(bar)
+        app.state.live_engine.process_external_bar(asdict(bar))
+    return JSONResponse({"ok": True, "bar_closed": bar is not None})
+
+
+@app.post("/api/ingest/bar")
+def ingest_bar(bar: BarIn) -> JSONResponse:
+    bar_obj = Bar(
+        ts=bar.ts,
+        symbol=bar.symbol.upper(),
+        open=bar.open,
+        high=bar.high,
+        low=bar.low,
+        close=bar.close,
+        volume=bar.volume,
+    )
+    insert_bar(bar_obj)
+    app.state.live_engine.process_external_bar(asdict(bar_obj))
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/ingest/flush")
+def ingest_flush() -> JSONResponse:
+    flushed = app.state.aggregator.flush()
+    count = 0
+    for bar in flushed.values():
+        insert_bar(bar)
+        app.state.live_engine.process_external_bar(asdict(bar))
+        count += 1
+    return JSONResponse({"flushed": count})
+
+
+@app.get("/api/watchlist")
+def get_watchlist() -> JSONResponse:
+    return JSONResponse({"symbols": load_watchlist()})
+
+
+@app.post("/api/watchlist")
+def set_watchlist(payload: WatchlistIn) -> JSONResponse:
+    symbols = payload.symbols
+    if isinstance(symbols, str):
+        symbols = [s.strip() for s in symbols.split(",") if s.strip()]
+    saved = save_watchlist(list(symbols))
+    return JSONResponse({"symbols": saved})
+
+
+@app.get("/api/dates")
+def dates() -> JSONResponse:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT DISTINCT substr(ts, 1, 10) AS date
+        FROM bars
+        ORDER BY date DESC;
+        """
+    )
+    rows = [row["date"] for row in cur.fetchall()]
+    conn.close()
+    return JSONResponse({"dates": rows})
+
+
+@app.get("/api/summary")
+def summary(date: Optional[str] = None) -> JSONResponse:
+    conn = get_connection()
+    cur = conn.cursor()
+    if date:
+        cur.execute("SELECT * FROM daily_results WHERE date = ?;", (date,))
+    else:
+        cur.execute("SELECT * FROM daily_results ORDER BY date DESC LIMIT 1;")
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return JSONResponse({"date": date, "trades": 0, "wins": 0, "losses": 0, "win_rate": 0, "realized_pnl": 0, "avg_r": 0})
+    return JSONResponse(dict(row))
+
+
+@app.get("/api/trades")
+def trades(date: Optional[str] = None) -> JSONResponse:
+    conn = get_connection()
+    cur = conn.cursor()
+    if date:
+        cur.execute(
+            """
+            SELECT * FROM trades
+            WHERE substr(entry_time, 1, 10) = ?
+            ORDER BY entry_time ASC;
+            """,
+            (date,),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT * FROM trades
+            ORDER BY entry_time DESC
+            LIMIT 100;
+            """
+        )
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return JSONResponse({"trades": rows})
+
+
+@app.get("/api/equity")
+def equity(date: Optional[str] = None) -> JSONResponse:
+    conn = get_connection()
+    cur = conn.cursor()
+    if date:
+        cur.execute(
+            """
+            SELECT exit_time, pnl
+            FROM trades
+            WHERE substr(exit_time, 1, 10) = ?
+            ORDER BY exit_time ASC;
+            """,
+            (date,),
+        )
+    else:
+        cur.execute("SELECT exit_time, pnl FROM trades ORDER BY exit_time ASC;")
+    rows = cur.fetchall()
+    conn.close()
+
+    equity = CONFIG.initial_capital
+    points = []
+    for row in rows:
+        equity += row["pnl"]
+        points.append({"time": row["exit_time"], "equity": equity})
+    return JSONResponse({"points": points})
+
+
+@app.post("/api/simulate")
+def run_simulation() -> JSONResponse:
+    result = simulate()
+    return JSONResponse({"result": result})
+
+
+@app.post("/api/data/upload")
+def upload_data(file: UploadFile = File(...)) -> JSONResponse:
+    if not file.filename:
+        return JSONResponse({"error": "No file uploaded"}, status_code=400)
+
+    contents = file.file.read()
+    tmp_path = DATA_DIR / f"upload_{datetime.utcnow().timestamp()}.csv"
+    tmp_path.write_bytes(contents)
+
+    try:
+        count, symbols = load_csv_to_db(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return JSONResponse({"inserted": count, "symbols": symbols})
+
+
+@app.post("/api/data/reset")
+def reset_data() -> JSONResponse:
+    clear_bars()
+    clear_simulation_data()
+    _auto_load_sample_data_if_empty()
+    return JSONResponse({"ok": True})
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+def _auto_load_sample_data_if_empty() -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS count FROM bars;")
+    count = cur.fetchone()["count"]
+    conn.close()
+    if count == 0:
+        sample = DATA_DIR / "sample_bars.csv"
+        if sample.exists():
+            load_csv_to_db(sample)
