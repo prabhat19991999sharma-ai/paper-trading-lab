@@ -56,7 +56,14 @@ async def on_startup() -> None:
     app.state.loop = asyncio.get_running_loop()
     app.state.live_engine = LiveEngine(app.state.manager, app.state.loop)
     app.state.aggregator = BarAggregator(pytz.timezone(CONFIG.timezone))
-    ensure_watchlist(["RELIANCE"])
+    ensure_watchlist([
+        "AXISBANK", "KERNEX", "SWSOLAR", "WEBELSOLAR", "ONGC", "DAVANGERE",
+        "OBEROIRLTY", "HINDALCO", "VOLTAS", "IRCTC", "AXISCADES", "THANGAMAYL",
+        "DELHIVERY", "UJJIVANSFB", "SILVERTUC", "V2RETAIL", "TORNTPOWER",
+        "TMB", "ASHOKLEY", "LICHSGFIN", "LTF", "SHRINGARMS", "DBREALTY",
+        "MOTILALOFS", "TRIL", "MIDWESTLTD", "ATL", "BANKBARODA", "SMLISUZU",
+        "EMBDL", "RBLBANK", "KAPSTON", "INFY", "NMDCSTEEL", "SHRIRAMFIN"
+    ])
 
 
 @app.get("/", response_class=HTMLResponse)
