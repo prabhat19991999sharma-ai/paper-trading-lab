@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import pytz
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
@@ -41,11 +41,11 @@ class BarIn(BaseModel):
     high: float
     low: float
     close: float
-    volume: float = 0.0
+    volume: float =0.0
 
 
 class WatchlistIn(BaseModel):
-    symbols: list[str] | str
+    symbols: Union[list[str], str]
 
 
 @app.on_event("startup")
