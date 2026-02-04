@@ -109,6 +109,11 @@ def status() -> JSONResponse:
     )
 
 
+@app.get("/api/market/quotes")
+def market_quotes() -> JSONResponse:
+    return JSONResponse(app.state.live_engine.last_quotes)
+
+
 @app.get("/api/live/status")
 def live_status() -> JSONResponse:
     return JSONResponse(app.state.live_engine.status())

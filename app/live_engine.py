@@ -52,6 +52,7 @@ class LiveEngine:
         self.bar_index = 0
         self.state_by_symbol: Dict[str, SymbolState] = {}
         self.daily_stats: Dict[str, DailyStats] = {}
+        self.last_quotes: Dict[str, float] = {}  # Symbol -> Last Price
         self.equity = CONFIG.initial_capital
         self.lock = threading.Lock()
         
@@ -98,6 +99,7 @@ class LiveEngine:
             clear_simulation_data()
             self.state_by_symbol.clear()
             self.daily_stats.clear()
+            self.last_quotes.clear()
             self.equity = CONFIG.initial_capital
             self.bar_index = 0
 
@@ -115,6 +117,7 @@ class LiveEngine:
         self.thread.start()
         self._broadcast_status()
         return self.status()
+
 
     def stop(self) -> dict:
         if not self.running:
@@ -208,6 +211,9 @@ class LiveEngine:
     def _process_bar(self, bar: dict) -> Optional[dict]:
         symbol = bar["symbol"]
         state = self.state_by_symbol.setdefault(symbol, SymbolState())
+        
+        # Update last quote
+        self.last_quotes[symbol] = float(bar["close"])
 
         dt = parse_dt(bar["ts"], self.tz)
         local_date = dt.strftime("%Y-%m-%d")

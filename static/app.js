@@ -50,10 +50,71 @@ async function loadDates() {
 async function loadWatchlist() {
   const data = await fetchJSON("/api/watchlist");
   const input = el("watchlist-input");
+  // Update state.watchlistSymbols for rendering
+  state.watchlistSymbols = data.symbols || [];
   if (data.symbols && data.symbols.length) {
     input.value = data.symbols.join(",");
   }
+  renderMarketWatch();
 }
+
+async function loadMarketQuotes() {
+  const quotes = await fetchJSON("/api/market/quotes");
+  state.quotes = quotes || {};
+  renderMarketWatch();
+}
+
+function renderMarketWatch() {
+  const tbody = el("market-watch-rows");
+  if (!state.watchlistSymbols) return;
+
+  tbody.innerHTML = "";
+  state.watchlistSymbols.forEach(sym => {
+    const price = state.quotes ? state.quotes[sym] : undefined;
+
+    const row = document.createElement("tr");
+
+    const cellSym = document.createElement("td");
+    cellSym.textContent = sym;
+
+    const cellPrice = document.createElement("td");
+    cellPrice.textContent = price ? fmtCurrency.format(price) : "—";
+    cellPrice.id = `quote-${sym}`; // For easy update
+
+    const cellChange = document.createElement("td");
+    cellChange.textContent = "—"; // Could calc change if we had valid close
+
+    row.appendChild(cellSym);
+    row.appendChild(cellPrice);
+    row.appendChild(cellChange);
+    tbody.appendChild(row);
+  });
+}
+
+
+
+function updateLiveBar(payload) {
+  if (!payload || !payload.bar) return;
+  const bar = payload.bar;
+  el("live-bar").textContent = `Last bar: ${bar.symbol} ${bar.ts}`;
+  if (payload.index && payload.total) {
+    el("live-progress").textContent = `${payload.index}/${payload.total}`;
+  }
+
+  // Update Market Watch immediately
+  if (state.quotes) state.quotes[bar.symbol] = bar.close;
+  const cell = el(`quote-${bar.symbol}`);
+  if (cell) {
+    cell.textContent = fmtCurrency.format(bar.close);
+    // Visual flash could be added here
+    cell.style.color = "#36e7a8";
+    setTimeout(() => cell.style.color = "", 500);
+  }
+}
+
+
+
+
 
 function renderDailyReport(data) {
   const dateEl = el("report-date");
@@ -191,8 +252,9 @@ async function saveWatchlist() {
   });
   const note = el("watchlist-note");
   if (note && data.symbols) {
-    note.textContent = `Saved ${data.symbols.length} symbols. Bridge will sync on next poll.`;
+    note.textContent = `Saved ${data.symbols.length} symbols.`;
   }
+  await loadWatchlist(); // Refresh table
 }
 
 async function startLive() {
@@ -210,6 +272,8 @@ async function refreshAll() {
   await loadSummary();
   await loadTrades();
   await loadEquity();
+  await loadWatchlist(); // Ensure watchlist is loaded
+  await loadMarketQuotes();
 }
 
 function updateLiveStatus(payload) {
@@ -237,14 +301,7 @@ function updateLiveStatus(payload) {
   }
 }
 
-function updateLiveBar(payload) {
-  if (!payload || !payload.bar) return;
-  const bar = payload.bar;
-  el("live-bar").textContent = `Last bar: ${bar.symbol} ${bar.ts}`;
-  if (payload.index && payload.total) {
-    el("live-progress").textContent = `${payload.index}/${payload.total}`;
-  }
-}
+
 
 function handleSocketMessage(message) {
   if (!message || !message.type) return;

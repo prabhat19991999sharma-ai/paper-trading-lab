@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Paper Trading Lab</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
+
 <body>
   <div class="bg-grid"></div>
   <header class="topbar">
@@ -69,13 +71,30 @@
       </div>
 
       <div class="panel-section watchlist">
-        <h3>Symbol Watchlist</h3>
-        <label class="field-label">Symbols (comma‑separated)</label>
-        <input id="watchlist-input" class="select" type="text" placeholder="RELIANCE,TCS,INFY" />
-        <div class="panel-section buttons">
-          <button id="btn-watchlist-save" class="btn">Save Watchlist</button>
+        <h3>Market Watch</h3>
+        <div class="market-watch-wrap">
+          <table class="market-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Price</th>
+                <th>Change</th>
+              </tr>
+            </thead>
+            <tbody id="market-watch-rows">
+              <!-- Rows injected by JS -->
+            </tbody>
+          </table>
         </div>
-        <small id="watchlist-note">Bridge will pick this list automatically if polling is enabled.</small>
+
+        <details class="watchlist-config">
+          <summary>Edit Watchlist</summary>
+          <label class="field-label" style="margin-top: 1rem;">Symbols (comma‑separated)</label>
+          <input id="watchlist-input" class="select" type="text" placeholder="RELIANCE,TCS,INFY" />
+          <div class="panel-section buttons">
+            <button id="btn-watchlist-save" class="btn">Save Watchlist</button>
+          </div>
+        </details>
       </div>
 
       <div class="panel-section buttons">
@@ -174,4 +193,5 @@
 
   <script src="/static/app.js"></script>
 </body>
+
 </html>
