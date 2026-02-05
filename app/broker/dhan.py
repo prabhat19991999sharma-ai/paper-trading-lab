@@ -174,6 +174,21 @@ class DhanBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Failed to get positions: {e}")
             return []
+
+    def get_funds(self) -> float:
+        """Get available funds from Dhan API"""
+        if not self.api:
+            return 0.0
+        
+        try:
+            response = self.api.get_fund_limits()
+            if isinstance(response, dict) and response.get('status') == 'success':
+                data = response.get('data', {})
+                return float(data.get('availabelBalance', 0.0))
+            return 0.0
+        except Exception as e:
+            self.logger.error(f"Failed to get funds: {e}")
+            return 0.0
     
     def get_orders(self) -> List[dict]:
         """Get all orders for the day"""

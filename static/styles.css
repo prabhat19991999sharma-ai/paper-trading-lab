@@ -103,6 +103,31 @@ body::before {
   -webkit-text-fill-color: transparent;
 }
 
+/* Funds Display */
+.funds-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-right: 1rem;
+}
+
+.funds-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.funds-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
 /* Trading Mode Toggle */
 .trading-mode-toggle {
   position: relative;

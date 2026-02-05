@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paper Trading Lab</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
+
 <body>
     <!-- Top Navigation Bar -->
     <nav class="top-nav">
@@ -15,15 +17,19 @@
                 <span class="logo-text">Paper Trading Lab</span>
             </div>
         </div>
-        
+
         <div class="nav-center">
+            <div class="funds-display">
+                <span class="funds-label">Available Funds:</span>
+                <span class="funds-value" id="navFunds">₹...</span>
+            </div>
             <div class="trading-mode-toggle">
                 <button class="mode-btn" id="paperMode" data-mode="PAPER">PAPER</button>
                 <button class="mode-btn" id="liveMode" data-mode="LIVE">LIVE</button>
                 <div class="mode-indicator" id="modeIndicator"></div>
             </div>
         </div>
-        
+
         <div class="nav-right">
             <button class="kill-switch-btn" id="killSwitchBtn">
                 <span class="kill-icon">✕</span>
@@ -74,7 +80,7 @@
                             <div class="progress-fill" id="tradesProgress"></div>
                         </div>
                     </div>
-                    
+
                     <div class="limit-item">
                         <div class="limit-label">
                             <span>Loss Limit</span>
@@ -84,7 +90,7 @@
                             <div class="progress-fill" id="lossProgress"></div>
                         </div>
                     </div>
-                    
+
                     <div class="limit-item">
                         <div class="limit-label">
                             <span>Open Positions</span>
@@ -191,4 +197,5 @@
 
     <script src="/static/app.js"></script>
 </body>
+
 </html>

@@ -305,7 +305,23 @@ def summary(date: Optional[str] = None) -> JSONResponse:
     conn.close()
     if not row:
         return JSONResponse({"date": date, "trades": 0, "wins": 0, "losses": 0, "win_rate": 0, "realized_pnl": 0, "avg_r": 0})
+    if not row:
+        return JSONResponse({"date": date, "trades": 0, "wins": 0, "losses": 0, "win_rate": 0, "realized_pnl": 0, "avg_r": 0})
     return JSONResponse(dict(row))
+
+
+@app.get("/api/funds")
+def get_funds() -> JSONResponse:
+    """Get available funds"""
+    engine = app.state.live_engine
+    
+    # If using real broker and LIVE mode (or just to check funds), try broker
+    if engine and engine.broker:
+        funds = engine.broker.get_funds()
+        return JSONResponse({"available_balance": funds})
+        
+    # Fallback to simulated equity
+    return JSONResponse({"available_balance": engine.equity if engine else CONFIG.initial_capital})
 
 
 @app.get("/api/trades")

@@ -317,6 +317,19 @@ async function loadWatchlist() {
   }
 }
 
+async function loadFunds() {
+  try {
+    const res = await fetch('/api/funds');
+    const data = await res.json();
+
+    if (data && data.available_balance !== undefined) {
+      document.getElementById('navFunds').textContent = `₹${data.available_balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+  } catch (error) {
+    console.error('Error loading funds:', error);
+  }
+}
+
 function renderWatchlist(symbols) {
   const container = document.getElementById('watchlistGrid');
 
@@ -371,6 +384,7 @@ function handleWebSocketMessage(data) {
     refreshPositions();
     loadSafetyLimits();
     loadStats();
+    loadFunds();
   } else if (data.type === 'status') {
     updateModeUI(data.trading_mode || 'PAPER');
   }
@@ -383,6 +397,7 @@ function loadInitialData() {
   refreshOrders();
   loadStats();
   loadWatchlist();
+  loadFunds();
 }
 
 function startDataRefresh() {
@@ -391,6 +406,7 @@ function startDataRefresh() {
     loadSafetyLimits();
     refreshPositions();
     loadStats();
+    loadFunds();
   }, 5000);
 
   // Refresh orders every 10 seconds
