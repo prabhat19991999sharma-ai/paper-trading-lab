@@ -319,11 +319,15 @@ async function loadWatchlist() {
 
 async function loadFunds() {
   try {
+    console.log('Fetching funds...');
     const res = await fetch('/api/funds');
     const data = await res.json();
+    console.log('Funds data:', data);
 
     if (data && data.available_balance !== undefined) {
-      document.getElementById('navFunds').textContent = `₹${data.available_balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const balance = data.available_balance;
+      console.log('Updating balance to:', balance);
+      document.getElementById('navFunds').textContent = `₹${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
   } catch (error) {
     console.error('Error loading funds:', error);

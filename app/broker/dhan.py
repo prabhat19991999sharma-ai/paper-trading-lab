@@ -178,7 +178,9 @@ class DhanBroker(BaseBroker):
     def get_funds(self) -> float:
         """Get available funds from Dhan API"""
         if not self.api:
-            return 0.0
+            self.logger.info("Broker not connected, attempting to connect...")
+            if not self.connect():
+                return 0.0
         
         try:
             response = self.api.get_fund_limits()
