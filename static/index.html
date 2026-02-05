@@ -9,187 +9,77 @@
 </head>
 
 <body>
-  <div class="bg-grid"></div>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">PT</div>
-      <div>
-        <h1>Paper Trading Lab</h1>
-        <p>Indian stocks simulator · 1‑minute strategy engine</p>
+  <div class="app-container">
+    <!-- Top Bar: Funds & Time -->
+    <header class="app-header">
+      <div class="funds-display">
+        <span class="label">Funds Left</span>
+        <span id="display-funds" class="value">₹...</span>
       </div>
+      <div class="time-display">
+        <span id="display-time" class="value">--:--</span>
+        <span class="label">Time</span>
+      </div>
+    </header>
+
+    <!-- Search Bar -->
+    <div class="search-section">
+      <input type="text" id="search-input" placeholder="Search Stocks..." />
+      <button id="btn-search">🔍</button>
     </div>
-    <div class="status">
-      <div class="status-item">
-        <span class="label">Bars</span>
-        <span id="status-bars">—</span>
-      </div>
-      <div class="status-item">
-        <span class="label">Trades</span>
-        <span id="status-trades">—</span>
-      </div>
-      <div class="status-item">
-        <span class="label">Broker</span>
-        <span id="status-broker" class="status-badge paper">Paper</span>
-      </div>
-    </div>
-  </header>
 
-  <main class="layout">
-    <section class="panel">
-      <div class="panel-header">
-        <h2>Control Room</h2>
-        <p>Load data, run the strategy, and review daily results.</p>
-      </div>
-
-      <div class="panel-section">
-        <label class="field-label">Trading Day</label>
-        <select id="date-select" class="select"></select>
-      </div>
-
-      <div class="panel-section live">
-        <h3>Live Replay</h3>
-        <div class="live-row">
-          <span id="live-indicator" class="live-dot"></span>
-          <span id="live-status">Stopped</span>
-        </div>
-        <label class="field-label">Speed</label>
-        <select id="speed-select" class="select">
-          <option value="1">1x (1 min)</option>
-          <option value="5">5x</option>
-          <option value="15">15x</option>
-          <option value="60" selected>60x (1 sec)</option>
-          <option value="120">120x</option>
-        </select>
-        <div class="panel-section buttons">
-          <button id="btn-live-start" class="btn primary">Start Live</button>
-          <button id="btn-live-stop" class="btn ghost">Stop</button>
-        </div>
-        <div class="live-meta">
-          <span id="live-bar">Last bar: —</span>
-          <span id="live-progress">0/0</span>
-        </div>
-      </div>
-
-      <div class="panel-section watchlist">
-        <h3>Market Watch</h3>
-        <div class="market-watch-wrap">
-          <table class="market-table">
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Price</th>
-                <th>Change</th>
-              </tr>
-            </thead>
-            <tbody id="market-watch-rows">
-              <!-- Rows injected by JS -->
-            </tbody>
-          </table>
-        </div>
-
-        <details class="watchlist-config">
-          <summary>Edit Watchlist</summary>
-          <label class="field-label" style="margin-top: 1rem;">Symbols (comma‑separated)</label>
-          <input id="watchlist-input" class="select" type="text" placeholder="RELIANCE,TCS,INFY" />
-          <div class="panel-section buttons">
-            <button id="btn-watchlist-save" class="btn">Save Watchlist</button>
+    <!-- Main Content Area -->
+    <main class="main-grid">
+      <!-- Left Column: Stock List -->
+      <section class="stock-list-section">
+        <h3>Stocks</h3>
+        <div class="stock-list-container" id="stock-list">
+          <!-- Stock Items will be injected here -->
+          <!-- Example Item:
+          <div class="stock-item">
+            <span class="stock-symbol">RELIANCE</span>
+            <span class="stock-price">₹2450.00</span>
           </div>
-        </details>
-      </div>
-
-      <div class="panel-section buttons">
-        <button id="btn-run" class="btn">Run Simulation</button>
-        <button id="btn-refresh" class="btn ghost">Refresh</button>
-        <button id="btn-reset" class="btn">Reset Data</button>
-      </div>
-
-      <div class="panel-section upload">
-        <label class="field-label">Upload CSV (1‑minute bars)</label>
-        <input id="file-input" type="file" accept=".csv" />
-        <button id="btn-upload" class="btn">Upload Data</button>
-        <small id="upload-note">CSV columns: ts, symbol, open, high, low, close, volume</small>
-      </div>
-
-      <div class="panel-section">
-        <h3>Strategy Rules</h3>
-        <ul class="rules">
-          <li>Breakout of 09:30 high.</li>
-          <li>Must also clear the 09:15–09:45 high.</li>
-          <li>Stops at entry bar low, target = 2R.</li>
-          <li>Only one trade per day.</li>
-        </ul>
-      </div>
-
-      <div class="panel-section disclaimer">
-        <h3>Data & Risk Note</h3>
-        <p>
-          This demo expects licensed market data. Free live tick data for NSE stocks is not
-          legally available. Use delayed bars or licensed feeds when you go live.
-        </p>
-      </div>
-    </section>
-
-    <section class="dashboard">
-      <div class="kpis">
-        <div class="kpi">
-          <span class="kpi-label">Realized PnL</span>
-          <span id="kpi-pnl" class="kpi-value">—</span>
+          -->
         </div>
-        <div class="kpi">
-          <span class="kpi-label">Trades</span>
-          <span id="kpi-trades" class="kpi-value">—</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-label">Win Rate</span>
-          <span id="kpi-win" class="kpi-value">—</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-label">Average R</span>
-          <span id="kpi-r" class="kpi-value">—</span>
-        </div>
-      </div>
+      </section>
 
-      <div class="report-card">
-        <div class="report-header">
-          <h2>Daily Report</h2>
-          <span id="report-date">—</span>
+      <!-- Right Column: Actions & Trade Feed -->
+      <section class="right-panel">
+        <!-- Setup Notification Button -->
+        <div class="action-area">
+          <button id="btn-setup-notification" class="btn-primary-action">
+            Setup Notification
+          </button>
+          
+          <!-- Hidden Controls for Demo/Testing Logic (kept for functionality but hidden/styled down) -->
+           <details class="dev-controls">
+            <summary>⚙️ Controls</summary>
+            <div class="control-group">
+                <button id="btn-live-start">Start Live</button>
+                <button id="btn-live-stop">Stop</button>
+                <button id="btn-reset">Reset</button>
+                <select id="speed-select"><option value="60">60x</option></select>
+            </div>
+           </details>
         </div>
-        <p id="daily-report">Run the simulator or start a live replay to generate today’s report.</p>
-      </div>
 
-      <div class="chart-card">
-        <div class="chart-header">
-          <h2>Equity Curve</h2>
-          <p>Based on closed trades for the selected day.</p>
+        <!-- Trade Executed Feed -->
+        <div class="trade-feed-section">
+          <h3>Trade Executed</h3>
+          <div class="trade-feed-container" id="trade-feed">
+            <!-- Trade Items injected here -->
+             <!-- Example:
+            <div class="trade-item">
+              <span class="trade-symbol">TCS</span>
+              <span class="trade-details">BUY @ 3400</span>
+            </div> 
+            -->
+          </div>
         </div>
-        <canvas id="equity-chart" width="900" height="260"></canvas>
-      </div>
-
-      <div class="table-card">
-        <div class="table-header">
-          <h2>Trades</h2>
-          <p>Long trades generated by the breakout strategy.</p>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Entry</th>
-                <th>Exit</th>
-                <th>Qty</th>
-                <th>Entry Px</th>
-                <th>Exit Px</th>
-                <th>PnL</th>
-                <th>R</th>
-              </tr>
-            </thead>
-            <tbody id="trade-rows"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

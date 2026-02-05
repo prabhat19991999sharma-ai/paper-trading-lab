@@ -66,12 +66,20 @@ class LiveEngine:
                 CONFIG.angel_password,
                 CONFIG.angel_totp_key
             )
+        elif CONFIG.broker_name == "dhan":
+            from .broker.dhan import DhanBroker
+            self.broker = DhanBroker(
+                CONFIG.dhan_client_id,
+                CONFIG.dhan_access_token
+            )
+
+        if self.broker:
             # Try connecting in a non-blocking way or log status
             try:
                 if self.broker.connect():
-                    print("Broker connected successfully")
+                    print(f"Broker ({CONFIG.broker_name}) connected successfully")
                 else:
-                    print("Broker connection failed")
+                    print(f"Broker ({CONFIG.broker_name}) connection failed")
             except Exception as e:
                 print(f"Broker init error: {e}")
 

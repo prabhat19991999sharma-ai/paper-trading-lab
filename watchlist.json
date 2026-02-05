@@ -1,0 +1,105 @@
+{
+    "watchlist": [
+        {
+            "symbol": "AXISBANK",
+            "name": "Axis Bank",
+            "securityId": "5900"
+        },
+        {
+            "symbol": "ONGC",
+            "name": "Oil and Natural Gas Corporation",
+            "securityId": "2475"
+        },
+        {
+            "symbol": "OBEROIRLTY",
+            "name": "Oberoi Realty Ltd",
+            "securityId": "20"
+        },
+        {
+            "symbol": "VOLTAS",
+            "name": "Voltas",
+            "securityId": "3718"
+        },
+        {
+            "symbol": "ASHOKALEY",
+            "name": "Ashoka Leyland Ltd",
+            "securityId": "7"
+        },
+        {
+            "symbol": "LTFH",
+            "name": "L&T Finance Ltd",
+            "securityId": "4592"
+        },
+        {
+            "symbol": "BANKBARODA",
+            "name": "Bank of Baroda Ltd",
+            "securityId": "558"
+        },
+        {
+            "symbol": "MM",
+            "name": "Mahindra & Mahindra",
+            "securityId": "2031"
+        },
+        {
+            "symbol": "DELHIVERY",
+            "name": "Delhivery",
+            "securityId": "1171"
+        },
+        {
+            "symbol": "TORNTPOWER",
+            "name": "Torrent Power",
+            "securityId": "3426"
+        },
+        {
+            "symbol": "UJJIVANSFB",
+            "name": "Ujjivan Small Finance Bank Ltd",
+            "securityId": "11184"
+        },
+        {
+            "symbol": "WEBELSOLAR",
+            "name": "Websol Energy System Ltd",
+            "securityId": "3753"
+        },
+        {
+            "symbol": "DWARKESH",
+            "name": "Dwarikesh Sugar Company Ltd",
+            "securityId": "1265"
+        },
+        {
+            "symbol": "THANGAMAYL",
+            "name": "Thangamayil Jewellery Ltd",
+            "securityId": "3322"
+        },
+        {
+            "symbol": "AXISCADES",
+            "name": "Axiscades Technologies Ltd",
+            "securityId": "532"
+        },
+        {
+            "symbol": "V2RETAIL",
+            "name": "V2 Retail Ltd",
+            "securityId": "11958"
+        },
+        {
+            "symbol": "KERNEX",
+            "name": "Kernex Microsystems (India) Limited",
+            "securityId": "10238"
+        },
+        {
+            "symbol": "RELIANCE",
+            "name": "Reliance Industries",
+            "securityId": "1333"
+        },
+        {
+            "symbol": "TCS",
+            "name": "Tata Consultancy Services",
+            "securityId": "11536"
+        },
+        {
+            "symbol": "INFY",
+            "name": "Infosys",
+            "securityId": "1594"
+        }
+    ],
+    "updated": "2026-02-05T23:57:54+05:30"
+}

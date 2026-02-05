@@ -1,6 +1,8 @@
 const state = {
-  selectedDate: null,
-  liveRunning: false,
+  quotes: {},
+  watchlistSymbols: [],
+  trades: [],
+  equity: 100000.0, // Default start
 };
 
 const fmtCurrency = new Intl.NumberFormat("en-IN", {
@@ -9,347 +11,200 @@ const fmtCurrency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-const fmtNumber = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
-const fmtPercent = (value) => `${(value * 100).toFixed(1)}%`;
+const fmtTime = (date) => new Date(date).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
 
 const el = (id) => document.getElementById(id);
 
+// --- API Helpers ---
 async function fetchJSON(url, options) {
   const res = await fetch(url, options);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
 }
 
-async function loadStatus() {
-  const data = await fetchJSON("/api/status");
-  el("status-bars").textContent = data.bars;
-  el("status-trades").textContent = data.trades;
-  el("status-run").textContent = data.last_run ? new Date(data.last_run).toLocaleString() : "—";
-}
+// --- Rendering ---
 
-async function loadDates() {
-  const data = await fetchJSON("/api/dates");
-  const select = el("date-select");
-  select.innerHTML = "";
-  data.dates.forEach((date, idx) => {
-    const option = document.createElement("option");
-    option.value = date;
-    option.textContent = date;
-    select.appendChild(option);
-    if (idx === 0) {
-      state.selectedDate = date;
-    }
-  });
-  if (state.selectedDate) {
-    select.value = state.selectedDate;
+function updateHeader(equity, timestamp) {
+  if (equity !== undefined) {
+    el("display-funds").textContent = fmtCurrency.format(equity);
+    state.equity = equity;
   }
-}
-
-async function loadWatchlist() {
-  const data = await fetchJSON("/api/watchlist");
-  const input = el("watchlist-input");
-  // Update state.watchlistSymbols for rendering
-  state.watchlistSymbols = data.symbols || [];
-  if (data.symbols && data.symbols.length) {
-    input.value = data.symbols.join(",");
-  }
-  renderMarketWatch();
-}
-
-async function loadMarketQuotes() {
-  const quotes = await fetchJSON("/api/market/quotes");
-  state.quotes = quotes || {};
-  renderMarketWatch();
-}
-
-function renderMarketWatch() {
-  const tbody = el("market-watch-rows");
-  if (!state.watchlistSymbols) return;
-
-  tbody.innerHTML = "";
-  state.watchlistSymbols.forEach(sym => {
-    const price = state.quotes ? state.quotes[sym] : undefined;
-
-    const row = document.createElement("tr");
-
-    const cellSym = document.createElement("td");
-    cellSym.textContent = sym;
-
-    const cellPrice = document.createElement("td");
-    cellPrice.textContent = price ? fmtCurrency.format(price) : "—";
-    cellPrice.id = `quote-${sym}`; // For easy update
-
-    const cellChange = document.createElement("td");
-    cellChange.textContent = "—"; // Could calc change if we had valid close
-
-    row.appendChild(cellSym);
-    row.appendChild(cellPrice);
-    row.appendChild(cellChange);
-    tbody.appendChild(row);
-  });
-}
-
-
-
-function updateLiveBar(payload) {
-  if (!payload || !payload.bar) return;
-  const bar = payload.bar;
-  el("live-bar").textContent = `Last bar: ${bar.symbol} ${bar.ts}`;
-  if (payload.index && payload.total) {
-    el("live-progress").textContent = `${payload.index}/${payload.total}`;
-  }
-
-  // Update Market Watch immediately
-  if (state.quotes) state.quotes[bar.symbol] = bar.close;
-  const cell = el(`quote-${bar.symbol}`);
-  if (cell) {
-    cell.textContent = fmtCurrency.format(bar.close);
-    // Visual flash could be added here
-    cell.style.color = "#36e7a8";
-    setTimeout(() => cell.style.color = "", 500);
-  }
-}
-
-
-
-
-
-function renderDailyReport(data) {
-  const dateEl = el("report-date");
-  const reportEl = el("daily-report");
-  if (!data || !data.date) {
-    dateEl.textContent = "—";
-    reportEl.textContent = "Run the simulator or start a live replay to generate today’s report.";
-    return;
-  }
-  dateEl.textContent = data.date;
-  reportEl.textContent = `${data.trades} trades · ${data.wins} wins · ${data.losses} losses · Win rate ${fmtPercent(
-    data.win_rate || 0
-  )} · Realized PnL ${fmtCurrency.format(data.realized_pnl || 0)} · Avg R ${fmtNumber.format(data.avg_r || 0)}`;
-}
-
-async function loadSummary() {
-  if (!state.selectedDate) return;
-  const data = await fetchJSON(`/api/summary?date=${state.selectedDate}`);
-  el("kpi-pnl").textContent = fmtCurrency.format(data.realized_pnl || 0);
-  el("kpi-trades").textContent = data.trades || 0;
-  el("kpi-win").textContent = fmtPercent(data.win_rate || 0);
-  el("kpi-r").textContent = fmtNumber.format(data.avg_r || 0);
-  renderDailyReport(data);
-}
-
-async function loadTrades() {
-  if (!state.selectedDate) return;
-  const data = await fetchJSON(`/api/trades?date=${state.selectedDate}`);
-  const tbody = el("trade-rows");
-  tbody.innerHTML = "";
-  data.trades.forEach((trade) => {
-    const row = document.createElement("tr");
-    const cells = [
-      trade.symbol,
-      new Date(trade.entry_time).toLocaleTimeString(),
-      trade.exit_time ? new Date(trade.exit_time).toLocaleTimeString() : "—",
-      trade.qty,
-      fmtNumber.format(trade.entry_price),
-      trade.exit_price ? fmtNumber.format(trade.exit_price) : "—",
-      fmtCurrency.format(trade.pnl || 0),
-      fmtNumber.format(trade.r_multiple || 0),
-    ];
-    cells.forEach((value) => {
-      const td = document.createElement("td");
-      td.textContent = value;
-      row.appendChild(td);
-    });
-    tbody.appendChild(row);
-  });
-}
-
-async function loadEquity() {
-  if (!state.selectedDate) return;
-  const data = await fetchJSON(`/api/equity?date=${state.selectedDate}`);
-  renderChart(data.points || []);
-}
-
-function renderChart(points) {
-  const canvas = el("equity-chart");
-  const ctx = canvas.getContext("2d");
-  const { width } = canvas.getBoundingClientRect();
-  const height = canvas.height;
-  const scale = window.devicePixelRatio || 1;
-
-  canvas.width = width * scale;
-  canvas.height = height * scale;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(scale, scale);
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#0c0c1a";
-  ctx.fillRect(0, 0, width, height);
-
-  if (!points.length) {
-    ctx.fillStyle = "#b4b2c9";
-    ctx.font = "14px Space Grotesk";
-    ctx.fillText("Run a simulation to see the equity curve.", 16, 32);
-    return;
-  }
-
-  const values = points.map((p) => p.equity);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const padding = 20;
-  const range = max - min || 1;
-  const denominator = Math.max(points.length - 1, 1);
-
-  const lineGradient = ctx.createLinearGradient(0, 0, width, 0);
-  lineGradient.addColorStop(0, "#36e7a8");
-  lineGradient.addColorStop(1, "#5ea0ff");
-
-  ctx.beginPath();
-  points.forEach((point, idx) => {
-    const x = padding + (idx / denominator) * (width - padding * 2);
-    const y = height - padding - ((point.equity - min) / range) * (height - padding * 2);
-    if (idx === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.strokeStyle = lineGradient;
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-}
-
-async function runSimulation() {
-  await fetchJSON("/api/simulate", { method: "POST" });
-  await refreshAll();
-}
-
-async function uploadData() {
-  const fileInput = el("file-input");
-  if (!fileInput.files.length) return;
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-  await fetchJSON("/api/data/upload", { method: "POST", body: formData });
-  fileInput.value = "";
-  await refreshAll();
-}
-
-async function resetData() {
-  const ok = window.confirm("This will clear trades and reload the sample data. Continue?");
-  if (!ok) return;
-  await fetchJSON("/api/data/reset", { method: "POST" });
-  await refreshAll();
-}
-
-async function saveWatchlist() {
-  const raw = el("watchlist-input").value || "";
-  const data = await fetchJSON("/api/watchlist", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbols: raw }),
-  });
-  const note = el("watchlist-note");
-  if (note && data.symbols) {
-    note.textContent = `Saved ${data.symbols.length} symbols.`;
-  }
-  await loadWatchlist(); // Refresh table
-}
-
-async function startLive() {
-  const speed = Number(el("speed-select").value || 60);
-  await fetchJSON(`/api/live/start?speed=${speed}&reset=true`, { method: "POST" });
-}
-
-async function stopLive() {
-  await fetchJSON("/api/live/stop", { method: "POST" });
-}
-
-async function refreshAll() {
-  await loadStatus();
-  await loadDates();
-  await loadSummary();
-  await loadTrades();
-  await loadEquity();
-  await loadWatchlist(); // Ensure watchlist is loaded
-  await loadMarketQuotes();
-}
-
-function updateLiveStatus(payload) {
-  const dot = el("live-indicator");
-  const status = el("live-status");
-  const progress = el("live-progress");
-  state.liveRunning = payload.running;
-  if (payload.running) {
-    dot.classList.add("active");
-    status.textContent = payload.mode === "stream" ? "Streaming" : "Running";
+  if (timestamp) {
+    el("display-time").textContent = fmtTime(timestamp); // Use server time if available
   } else {
-    dot.classList.remove("active");
-    status.textContent = "Stopped";
-  }
-  if (payload.total !== undefined && payload.total !== 0) {
-    progress.textContent = `${payload.index || 0}/${payload.total}`;
-  }
-
-  // Update Broker Status
-  const brokerEl = el("status-broker");
-  if (payload.broker_name) {
-    brokerEl.textContent = payload.broker_name === "paper" ? "Paper" : "Active";
-    brokerEl.className = "status-badge " + (payload.broker_connected ? "connected" : "paper");
-    if (payload.broker_name === "paper") brokerEl.className = "status-badge paper";
+    // Fallback to local time if no server time provided
+    el("display-time").textContent = new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
   }
 }
 
+function renderStockList() {
+  const container = el("stock-list");
+  const filter = el("search-input").value.toUpperCase();
 
+  container.innerHTML = "";
 
-function handleSocketMessage(message) {
-  if (!message || !message.type) return;
-  if (message.type === "status" || message.type === "done") {
-    updateLiveStatus(message);
-    return;
+  state.watchlistSymbols.forEach(sym => {
+    if (filter && !sym.includes(filter)) return;
+
+    const price = state.quotes[sym];
+    const item = document.createElement("div");
+    item.className = "stock-item";
+    item.dataset.symbol = sym;
+
+    // Simulate change (randomized for demo/visual as we don't have prev close in quotes map usually)
+    // In a real app, we'd calculate change %
+    const priceDisplay = price ? fmtCurrency.format(price) : "—";
+
+    item.innerHTML = `
+      <span class="stock-symbol">${sym}</span>
+      <span class="stock-price" id="quote-${sym}">${priceDisplay}</span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderTradeFeed(trades) {
+  const container = el("trade-feed");
+  // Prepend new trades? Or re-render all. Simpler to re-render sorted by time DESC.
+  // Assuming 'trades' is sorted or we sort it.
+  container.innerHTML = "";
+
+  // Sort trades by time desc
+  const sorted = [...trades].sort((a, b) => new Date(b.entry_time) - new Date(a.entry_time));
+
+  sorted.forEach(trade => {
+    const item = document.createElement("div");
+    item.className = `trade-item ${trade.side === 'LONG' ? 'buy' : 'sell'}`; // Assume Long=Buy for now
+
+    const pnlClass = (trade.pnl > 0) ? "price-up" : (trade.pnl < 0 ? "price-down" : "");
+    const pnlText = trade.pnl ? `${fmtCurrency.format(trade.pnl)}` : "OPEN";
+    const status = trade.exit_time ? "CLOSED" : "OPEN";
+
+    item.innerHTML = `
+      <div class="trade-header">
+        <span class="trade-symbol">${trade.symbol}</span>
+        <span class="trade-time">${fmtTime(trade.entry_time)}</span>
+      </div>
+      <div class="trade-details">
+        <div>${trade.side} @ ${trade.entry_price}</div>
+        <div style="margin-top: 4px; font-weight: 500;" class="${pnlClass}">
+           ${status}: ${pnlText}
+        </div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// --- Logic ---
+
+async function loadData() {
+  try {
+    const [watchlistData, quotesData, tradesData, statusData] = await Promise.all([
+      fetchJSON("/api/watchlist"),
+      fetchJSON("/api/market/quotes"),
+      fetchJSON("/api/trades"), // Gets last 100 trades
+      fetchJSON("/api/status") // To get summary or equity if needed
+    ]);
+
+    state.watchlistSymbols = watchlistData.symbols || [];
+    state.quotes = quotesData || {};
+    state.trades = tradesData.trades || [];
+
+    renderStockList();
+    renderTradeFeed(state.trades);
+
+    // Initial fetch doesn't give equity easily without /api/summary for specifics or tracking it.
+    // We'll trust the socket or separate call for live equity.
+    // For now, let's load specific daily summary for today to get accurate PnL to add to base equity?
+    // Simplified: Just update header time.
+    updateHeader(state.equity);
+
+  } catch (e) {
+    console.error("Load failed:", e);
   }
-  if (message.type === "bar") {
-    updateLiveBar(message);
-    return;
-  }
-  if (message.type === "trade") {
-    if (message.summary) {
-      renderDailyReport(message.summary);
+}
+
+// --- Socket ---
+
+function handleSocketMessage(msg) {
+  if (!msg || !msg.type) return;
+
+  if (msg.type === "bar" && msg.bar) {
+    // Update Quote
+    state.quotes[msg.bar.symbol] = msg.bar.close;
+
+    // Update DOM directly for performance
+    const cell = el(`quote-${msg.bar.symbol}`);
+    if (cell) {
+      cell.textContent = fmtCurrency.format(msg.bar.close);
+      // Flash effect?
+      cell.style.color = msg.bar.close > (state.quotes[msg.bar.symbol] || 0) ? "var(--green)" : "var(--red)"; // Simple Logic
+      setTimeout(() => cell.style.color = "", 500);
     }
-    refreshAll();
+
+    // Update Time
+    if (msg.bar.ts) updateHeader(msg.equity, msg.bar.ts);
+  }
+
+  if (msg.type === "trade") {
+    // Trade update (entry or exit)
+    // We usually receive the single trade object
+    // We need to upsert it into state.trades
+    const newTrade = msg.trade;
+    // Remove existing if any (by symbol + entry_time match? or ID if available)
+    // App doesn't send unique Trade ID easily visible here, relying on simple filter
+    state.trades = state.trades.filter(t => !(t.symbol === newTrade.symbol && t.entry_time === newTrade.entry_time));
+    state.trades.unshift(newTrade);
+    renderTradeFeed(state.trades);
+
+    // Update Equity
+    if (msg.equity) updateHeader(msg.equity);
+  }
+
+  if (msg.type === "done") {
+    el("btn-live-start").textContent = "Start Live";
   }
 }
 
 function connectSocket() {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${window.location.host}/ws`);
-  socket.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
-    handleSocketMessage(message);
-  });
-  socket.addEventListener("close", () => {
-    setTimeout(connectSocket, 2000);
-  });
+  socket.addEventListener("message", (event) => handleSocketMessage(JSON.parse(event.data)));
+  socket.addEventListener("close", () => setTimeout(connectSocket, 2000));
 }
 
-function bindEvents() {
-  el("btn-run").addEventListener("click", runSimulation);
-  el("btn-refresh").addEventListener("click", refreshAll);
-  el("btn-upload").addEventListener("click", uploadData);
-  el("btn-reset").addEventListener("click", resetData);
-  el("btn-live-start").addEventListener("click", startLive);
-  el("btn-live-stop").addEventListener("click", stopLive);
-  el("btn-watchlist-save").addEventListener("click", saveWatchlist);
-  el("date-select").addEventListener("change", (event) => {
-    state.selectedDate = event.target.value;
-    loadSummary();
-    loadTrades();
-    loadEquity();
-  });
-}
+// --- Events ---
 
-bindEvents();
+el("search-input").addEventListener("input", renderStockList);
+el("btn-search").addEventListener("click", renderStockList);
+
+el("btn-setup-notification").addEventListener("click", () => {
+  alert("Notification setup feature coming soon!");
+});
+
+// Dev Controls
+el("btn-live-start").addEventListener("click", async () => {
+  const speed = el("speed-select").value;
+  await fetchJSON(`/api/live/start?speed=${speed}&reset=true`, { method: "POST" });
+  el("btn-live-start").textContent = "Running...";
+});
+el("btn-live-stop").addEventListener("click", async () => {
+  await fetchJSON("/api/live/stop", { method: "POST" });
+  el("btn-live-start").textContent = "Start Live";
+});
+el("btn-reset").addEventListener("click", async () => {
+  if (confirm("Reset Data?")) {
+    await fetchJSON("/api/data/reset", { method: "POST" });
+    loadData();
+  }
+});
+
+
+// Init
+loadData();
 connectSocket();
-refreshAll();
-loadWatchlist();
+setInterval(() => {
+  // Keep time updated if no socket flow
+  if (!state.liveRunning) updateHeader(undefined, new Date());
+}, 1000);

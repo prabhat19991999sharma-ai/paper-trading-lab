@@ -9,24 +9,33 @@ Yes, this system **works in the live market**, but currently in **Paper Mode** (
 
 ---
 
-## 🔌 Connecting Live Data (TrueData Example)
+## 🔌 Connecting Live Data
 
-If you have a TrueData subscription, you can power this app with live NSE data immediately.
+### Option A: Angel One (Free for Users)
+If you have an Angel One account, use our bridge to stream data for free.
 
-### Step 1: Install Adapter
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements-angel.txt
+   ```
+
+2. **Run the Bridge**:
+   (In a separate terminal window)
+   ```bash
+   export ANGEL_API_KEY="..."
+   export ANGEL_CLIENT_ID="..."
+   export ANGEL_PASSWORD="..."
+   export ANGEL_TOTP_KEY="..."
+
+   python3 scripts/angel_bridge.py
+   ```
+   *Note: This script has a predefined list of tokens (RELIANCE, INFY, etc.). Edit `scripts/angel_bridge.py` to maps newer stocks.*
+
+### Option B: TrueData (Paid Feed)
+If you have a TrueData subscription:
 ```bash
-pip install -r requirements-truedata.txt
-```
-
-### Step 2: Run the Bridge
-Open a new terminal window and run:
-
-```bash
-# Replace with your TrueData credentials
-export TRUEDATA_USERNAME="your_id"
-export TRUEDATA_PASSWORD="your_password"
-
-# The bridge will automatically pick up your watchlist from the app
+export TRUEDATA_USERNAME="..."
+export TRUEDATA_PASSWORD="..."
 python3 scripts/truedata_bridge.py
 ```
 

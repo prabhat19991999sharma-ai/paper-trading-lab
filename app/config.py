@@ -18,11 +18,17 @@ class AppConfig:
     stop_fill_priority: str = "stop"  # "stop" or "target" when both hit in same bar
 
     # Broker Configuration
-    broker_name: str = "paper"  # "paper" or "angel-one"
+    broker_name: str = "paper"  # "paper", "angel-one", or "dhan"
+    
+    # Angel One
     angel_api_key: str = ""
     angel_client_id: str = ""
     angel_password: str = ""
     angel_totp_key: str = ""
+    
+    # Dhan
+    dhan_client_id: str = "2602058043"
+    dhan_access_token: str = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbkNvbnN1bWVyVHlwZSI6IlNFTEYiLCJwYXJ0bmVySWQiOiIiLCJkaGFuQ2xpZW50SWQiOiIyNjAyMDU4MDQzIiwid2ViaG9va1VybCI6Imh0dHBzOi8vYXBpLmRoYW4uY28vdjIiLCJpc3MiOiJkaGFuIiwiZXhwIjoxNzcwOTE3MjMzfQ.-MpDlASrh8WVbJtkwj2M-3IZ9LLwTl_YFC8D-cDaMtPwdOHYp1rWYqpvsyUZ94T1rVSuHdqpsxUY6ibUPOvIRA"
 
 
 CONFIG = AppConfig()
