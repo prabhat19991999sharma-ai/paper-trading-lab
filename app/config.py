@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
 
-@dataclass
+import os
+
+@dataclass(frozen=True)
 class AppConfig:
     # General
     timezone: str = "Asia/Kolkata"
@@ -19,14 +21,14 @@ class AppConfig:
     broker_name: str = "dhan"  # "angel-one" or "dhan"
     
     # Angel One
-    angel_api_key: str = ""
-    angel_client_id: str = ""
-    angel_password: str = ""
-    angel_totp_key: str = ""
+    angel_api_key: str = os.getenv("ANGEL_API_KEY", "")
+    angel_client_id: str = os.getenv("ANGEL_CLIENT_ID", "")
+    angel_password: str = os.getenv("ANGEL_PASSWORD", "")
+    angel_totp_key: str = os.getenv("ANGEL_TOTP_KEY", "")
     
     # Dhan
-    dhan_client_id: str = "2602058043"
-    dhan_access_token: str = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbkNvbnN1bWVyVHlwZSI6IlNFTEYiLCJwYXJ0bmVySWQiOiIiLCJkaGFuQ2xpZW50SWQiOiIyNjAyMDU4MDQzIiwid2ViaG9va1VybCI6Imh0dHBzOi8vYXBpLmRoYW4uY28vdjIiLCJpc3MiOiJkaGFuIiwiZXhwIjoxNzcwOTE3MjMzfQ.-MpDlASrh8WVbJtkwj2M-3IZ9LLwTl_YFC8D-cDaMtPwdOHYp1rWYqpvsyUZ94T1rVSuHdqpsxUY6ibUPOvIRA"
+    dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "1104713239")
+    dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwX2lwIjoiIiwic19pcCI6IiIsImlzcyI6ImRoYW4iLCJwYXJ0bmVySWQiOiIiLCJleHAiOjE3NzA0MDU3NDIsImlhdCI6MTc3MDMxOTM0MiwidG9rZW5Db25zdW1lclR5cGUiOiJTRUxGIiwid2ViaG9va1VybCI6Imh0dHBzOi8vc2FuZGJveC5kaGFuLmNvL3YyIiwiZGhhbkNsaWVudElkIjoiMTEwNDcxMzIzOSJ9.WHGqdRcjcNuIDegjEOKEoOaYpyqmoNSPDrGPyacLXQPGj0T8WZTGJSI7cVTRSgveRqMzwCe6mcu7V3CJtyvvjA")
     
     # Trading Mode
     trading_mode: str = "PAPER"  # "PAPER" or "LIVE" - ALWAYS starts in PAPER mode
