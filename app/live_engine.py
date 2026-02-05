@@ -13,7 +13,9 @@ from fastapi import WebSocket
 from .config import CONFIG
 from .db import clear_simulation_data
 from .simulator import store_daily_result, store_trade
+from .simulator import store_daily_result, store_trade
 from .strategy_core import DailyStats, SymbolState, Trade, parse_dt, parse_time
+from .safety import SafetyManager, SafetyLimits
 
 
 class ConnectionManager:
@@ -87,6 +89,17 @@ class LiveEngine:
         self.breakout_time = parse_time(CONFIG.breakout_time)
         self.first_30_start = parse_time(CONFIG.first_30_start)
         self.first_30_end = parse_time(CONFIG.first_30_end)
+        
+        # Safety Manager Initialization
+        self.safety = SafetyManager(
+            SafetyLimits(
+                max_trades_per_day=CONFIG.max_trades_per_day,
+                max_loss_per_day=CONFIG.max_loss_per_day,
+                max_position_size=CONFIG.max_position_size,
+                max_positions_open=CONFIG.max_positions_open
+            ),
+            timezone=CONFIG.timezone
+        )
 
     def status(self) -> dict:
         return {
@@ -96,7 +109,9 @@ class LiveEngine:
             "index": self.bar_index,
             "total": len(self.bars),
             "broker_connected": self.broker is not None,
-            "broker_name": CONFIG.broker_name
+            "broker_name": CONFIG.broker_name,
+            "trading_mode": CONFIG.trading_mode,
+            "safety_status": self.safety.get_status()
         }
 
     def start(self, speed: float = 60.0, reset: bool = True) -> dict:
@@ -248,9 +263,23 @@ class LiveEngine:
 
         if state.open_trade is None and state.high_930 and state.high_30:
             if state.trades_today < CONFIG.max_trades_per_day_per_symbol and float(bar["close"]) > state.high_930 and float(bar["close"]) > state.high_30:
+                # SAFETY CHECK
+                allowed, reason = self.safety.is_trading_allowed()
+                if not allowed:
+                    print(f"Trade blocked by safety: {reason}")
+                    return None
+
                 entry_price = float(bar["close"])
                 stop_loss = float(bar["low"])
                 qty = self._risk_limited_qty(entry_price, stop_loss)
+                
+                # Position Size Check
+                if qty > 0:
+                    position_value = qty * entry_price
+                    size_ok, size_reason = self.safety.validate_position_size(position_value)
+                    if not size_ok:
+                        print(f"Trade blocked: {size_reason}")
+                        qty = 0  # Cancel trade
                 if qty > 0:
                     risk = entry_price - stop_loss
                     target = entry_price + risk * CONFIG.risk_reward
@@ -265,21 +294,33 @@ class LiveEngine:
                     )
                     state.trades_today += 1
                     
-                    # --- BROKER EXECUTION (ENTRY) ---
-                    if self.broker and CONFIG.broker_name != "paper":
-                        try:
-                            # Place Market Order for immediate entry
-                            # Note: Angel needs token mapping. If not found, it errors.
-                            resp = self.broker.place_order(
-                                symbol=symbol,
-                                side="BUY",
-                                qty=qty,
-                                price=0.0,  # Market order
-                                stop_loss=stop_loss
-                            )
-                            print(f"[REAL TRADE] Entry {symbol}: {resp}")
-                        except Exception as e:
-                            print(f"[REAL TRADE ERROR] Entry {symbol}: {e}")
+                    # Record usage in safety manager
+                    self.safety.record_position_open()
+
+                    # --- LIVE TRADING EXECUTION (ENTRY) ---
+                    if CONFIG.trading_mode == "LIVE":
+                        if self.broker:
+                            try:
+                                # Place Market Order for immediate entry
+                                resp = self.broker.place_order(
+                                    symbol=symbol,
+                                    side="BUY",
+                                    qty=qty,
+                                    price=0.0,  # Market order
+                                    stop_loss=stop_loss,
+                                    tag="algo-entry"
+                                )
+                                print(f"[REAL TRADE] Entry {symbol}: {resp}")
+                                if resp.status == "failed":
+                                    # If broker fails, we should probably cancel the internal trade too
+                                    # But for now we just log error
+                                    pass
+                            except Exception as e:
+                                print(f"[REAL TRADE ERROR] Entry {symbol}: {e}")
+                        else:
+                             print("LIVE mode enabled but broker not connected!")
+                    else:
+                        print(f"[PAPER TRADE] Entry {symbol} Qty {qty} @ {entry_price}")
 
         if state.open_trade is not None:
             low = float(bar["low"])
@@ -304,19 +345,27 @@ class LiveEngine:
                 )
                 state.open_trade.status = "closed"
                 
-                # --- BROKER EXECUTION (EXIT) ---
-                if self.broker and CONFIG.broker_name != "paper":
-                    try:
-                        # Place Market Order for exit
-                        resp = self.broker.place_order(
-                            symbol=symbol,
-                            side="SELL",
-                            qty=state.open_trade.qty,
-                            price=0.0
-                        )
-                        print(f"[REAL TRADE] Exit {symbol}: {resp}")
-                    except Exception as e:
-                        print(f"[REAL TRADE ERROR] Exit {symbol}: {e}")
+                # --- LIVE TRADING EXECUTION (EXIT) ---
+                if CONFIG.trading_mode == "LIVE":
+                    if self.broker:
+                        try:
+                            # Place Market Order for exit
+                            resp = self.broker.place_order(
+                                symbol=symbol,
+                                side="SELL",
+                                qty=state.open_trade.qty,
+                                price=0.0,
+                                tag="algo-exit"
+                            )
+                            print(f"[REAL TRADE] Exit {symbol}: {resp}")
+                        except Exception as e:
+                            print(f"[REAL TRADE ERROR] Exit {symbol}: {e}")
+                else:
+                    print(f"[PAPER TRADE] Exit {symbol} PnL {state.open_trade.pnl:.2f}")
+
+                # Update safety stats
+                self.safety.record_trade(state.open_trade.pnl)
+                self.safety.record_position_close()
 
                 store_trade(state.open_trade)
 

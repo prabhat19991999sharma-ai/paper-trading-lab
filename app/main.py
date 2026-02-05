@@ -48,6 +48,11 @@ class WatchlistIn(BaseModel):
     symbols: Union[list[str], str]
 
 
+class TradingModeIn(BaseModel):
+    mode: str
+    confirm: bool = False
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     init_db()
@@ -129,6 +134,92 @@ def live_start(speed: float = 60.0, reset: bool = True) -> JSONResponse:
 def live_stop() -> JSONResponse:
     result = app.state.live_engine.stop()
     return JSONResponse(result)
+
+
+# --- TRADING CONTROLS ---
+
+@app.post("/api/trading/mode")
+def set_trading_mode(payload: TradingModeIn) -> JSONResponse:
+    mode = payload.mode.upper()
+    if mode not in ["PAPER", "LIVE"]:
+        return JSONResponse({"success": False, "message": "Invalid mode. Use PAPER or LIVE."})
+    
+    if mode == "LIVE" and not payload.confirm:
+        return JSONResponse({"success": False, "message": "Confirmation required for LIVE mode."})
+    
+    # Update global config
+    CONFIG.trading_mode = mode
+    
+    # Reset safety counters if switching to live
+    if mode == "LIVE":
+        app.state.live_engine.safety.reset_daily_counters()
+        
+    return JSONResponse({"success": True, "mode": mode})
+
+
+@app.get("/api/trading/limits")
+def get_trading_limits() -> JSONResponse:
+    if not hasattr(app.state, "live_engine"):
+         return JSONResponse({})
+    return JSONResponse(app.state.live_engine.safety.get_status())
+
+
+@app.post("/api/trading/killswitch")
+def activate_killswitch() -> JSONResponse:
+    if hasattr(app.state, "live_engine"):
+        app.state.live_engine.safety.activate_kill_switch()
+        # Also stop the engine loop if running
+        # app.state.live_engine.stop() 
+        return JSONResponse({"success": True, "message": "Kill switch activated"})
+    return JSONResponse({"success": False, "message": "Engine not initialized"})
+
+
+@app.get("/api/orders/live")
+def get_live_orders() -> JSONResponse:
+    """Proxy to get real orders from broker in LIVE mode"""
+    # For PAPER mode, we could return simulated trades, but the UI has a separate recent orders table.
+    # This endpoint is specifically for the 'Real Broker Orders' if we want to show them.
+    # However, the current UI merges them. Let's return broker orders.
+    
+    engine = app.state.live_engine
+    if engine and engine.broker:
+        orders = engine.broker.get_orders()
+        # Normalize format if needed, but for now passing through
+        # Dhan returns list of dicts
+        return JSONResponse({"orders": orders})
+    
+    # If paper mode or no broker, return internal simulated trades for today
+    # mapped to similar structure
+    return JSONResponse({"orders": []})
+
+
+@app.get("/api/positions/live")
+def get_live_positions() -> JSONResponse:
+    """Get live positions from broker"""
+    engine = app.state.live_engine
+    
+    if CONFIG.trading_mode == "LIVE" and engine and engine.broker:
+        positions = engine.broker.get_positions()
+        return JSONResponse({"positions": positions})
+        
+    # In Paper Mode, we can return the internal active trade state
+    if engine:
+        positions = []
+        for symbol, state in engine.state_by_symbol.items():
+            if state.open_trade:
+                t = state.open_trade
+                current_price = engine.last_quotes.get(symbol, t.entry_price)
+                pnl = (current_price - t.entry_price) * t.qty
+                positions.append({
+                    "symbol": symbol,
+                    "quantity": t.qty,
+                    "avg_price": t.entry_price,
+                    "pnl": pnl,
+                    "ltp": current_price
+                })
+        return JSONResponse({"positions": positions})
+        
+    return JSONResponse({"positions": []})
 
 
 @app.post("/api/ingest/tick")

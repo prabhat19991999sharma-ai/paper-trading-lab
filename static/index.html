@@ -1,87 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Paper Trading Lab</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Trading Lab</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
-
 <body>
-  <div class="app-container">
-    <!-- Top Bar: Funds & Time -->
-    <header class="app-header">
-      <div class="funds-display">
-        <span class="label">Funds Left</span>
-        <span id="display-funds" class="value">₹...</span>
-      </div>
-      <div class="time-display">
-        <span id="display-time" class="value">--:--</span>
-        <span class="label">Time</span>
-      </div>
-    </header>
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-left">
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">Paper Trading Lab</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="trading-mode-toggle">
+                <button class="mode-btn" id="paperMode" data-mode="PAPER">PAPER</button>
+                <button class="mode-btn" id="liveMode" data-mode="LIVE">LIVE</button>
+                <div class="mode-indicator" id="modeIndicator"></div>
+            </div>
+        </div>
+        
+        <div class="nav-right">
+            <button class="kill-switch-btn" id="killSwitchBtn">
+                <span class="kill-icon">✕</span>
+                KILL SWITCH
+            </button>
+        </div>
+    </nav>
 
-    <!-- Search Bar -->
-    <div class="search-section">
-      <input type="text" id="search-input" placeholder="Search Stocks..." />
-      <button id="btn-search">🔍</button>
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Status Banner -->
+        <div class="status-banner" id="statusBanner">
+            <span id="statusText">System Ready</span>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Live Positions Card -->
+            <div class="card positions-card">
+                <div class="card-header">
+                    <h2>Live Positions</h2>
+                    <span class="refresh-btn" onclick="refreshPositions()">🔄</span>
+                </div>
+                <div class="card-body">
+                    <div id="positionsList" class="positions-list">
+                        <div class="empty-state">No open positions</div>
+                    </div>
+                    <div class="total-pnl">
+                        <span>Total P&L:</span>
+                        <span id="totalPnl" class="pnl-value">₹0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Safety Limits Card -->
+            <div class="card safety-card">
+                <div class="card-header">
+                    <h2>Safety Limits</h2>
+                    <span class="status-dot" id="safetyStatus"></span>
+                </div>
+                <div class="card-body">
+                    <div class="limit-item">
+                        <div class="limit-label">
+                            <span>Trades Remaining</span>
+                            <span id="tradesCount">0/5</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="tradesProgress"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="limit-item">
+                        <div class="limit-label">
+                            <span>Loss Limit</span>
+                            <span id="lossCount">₹0/₹5,000</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="lossProgress"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="limit-item">
+                        <div class="limit-label">
+                            <span>Open Positions</span>
+                            <span id="positionsCount">0/3</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="positionsProgress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders Card -->
+            <div class="card orders-card">
+                <div class="card-header">
+                    <h2>Recent Orders</h2>
+                    <button class="btn-secondary" onclick="refreshOrders()">Refresh</button>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table id="ordersTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Symbol</th>
+                                    <th>Side</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersBody">
+                                <tr class="empty-row">
+                                    <td colspan="6">No orders yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Stats Card -->
+            <div class="card stats-card">
+                <div class="card-header">
+                    <h2>Strategy Performance</h2>
+                </div>
+                <div class="card-body stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Win Rate</div>
+                        <div class="stat-value" id="winRate">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Trades</div>
+                        <div class="stat-value" id="totalTrades">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Realized P&L</div>
+                        <div class="stat-value pnl-value" id="realizedPnl">₹0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Watchlist Section -->
+        <div class="watchlist-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Watchlist</h2>
+                    <button class="btn-secondary" onclick="toggleWatchlistEdit()">Edit</button>
+                </div>
+                <div class="card-body">
+                    <div id="watchlistGrid" class="watchlist-grid"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Main Content Area -->
-    <main class="main-grid">
-      <!-- Left Column: Stock List -->
-      <section class="stock-list-section">
-        <h3>Stocks</h3>
-        <div class="stock-list-container" id="stock-list">
-          <!-- Stock Items will be injected here -->
-          <!-- Example Item:
-          <div class="stock-item">
-            <span class="stock-symbol">RELIANCE</span>
-            <span class="stock-price">₹2450.00</span>
-          </div>
-          -->
-        </div>
-      </section>
-
-      <!-- Right Column: Actions & Trade Feed -->
-      <section class="right-panel">
-        <!-- Setup Notification Button -->
-        <div class="action-area">
-          <button id="btn-setup-notification" class="btn-primary-action">
-            Setup Notification
-          </button>
-          
-          <!-- Hidden Controls for Demo/Testing Logic (kept for functionality but hidden/styled down) -->
-           <details class="dev-controls">
-            <summary>⚙️ Controls</summary>
-            <div class="control-group">
-                <button id="btn-live-start">Start Live</button>
-                <button id="btn-live-stop">Stop</button>
-                <button id="btn-reset">Reset</button>
-                <select id="speed-select"><option value="60">60x</option></select>
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <h3>Confirm Trading Mode Change</h3>
+            <p id="confirmMessage"></p>
+            <div class="modal-warning">
+                ⚠️ This will execute REAL orders with REAL money!
             </div>
-           </details>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" id="confirmBtn" onclick="confirmAction()">Confirm</button>
+            </div>
         </div>
+    </div>
 
-        <!-- Trade Executed Feed -->
-        <div class="trade-feed-section">
-          <h3>Trade Executed</h3>
-          <div class="trade-feed-container" id="trade-feed">
-            <!-- Trade Items injected here -->
-             <!-- Example:
-            <div class="trade-item">
-              <span class="trade-symbol">TCS</span>
-              <span class="trade-details">BUY @ 3400</span>
-            </div> 
-            -->
-          </div>
+    <!-- Kill Switch Modal -->
+    <div class="modal" id="killSwitchModal">
+        <div class="modal-content kill-switch-modal">
+            <h3>⚠️ Activate Kill Switch?</h3>
+            <p>This will immediately stop all trading activity.</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeKillSwitchModal()">Cancel</button>
+                <button class="btn-danger" onclick="confirmKillSwitch()">ACTIVATE</button>
+            </div>
         </div>
-      </section>
-    </main>
-  </div>
+    </div>
 
-  <script src="/static/app.js"></script>
+    <script src="/static/app.js"></script>
 </body>
-
 </html>

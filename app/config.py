@@ -1,24 +1,22 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass
 class AppConfig:
+    # General
     timezone: str = "Asia/Kolkata"
-    session_open: str = "09:15"
-    breakout_time: str = "09:30"
-    first_30_start: str = "09:15"
-    first_30_end: str = "09:45"
-    risk_reward: float = 2.0
-    initial_capital: float = 100000.0  # INR
-    max_position_pct: float = 1.0  # use 100% of equity per trade
-    max_risk_pct: float = 0.01  # risk per trade as % of equity
-    max_trades_per_day_global: int = 5
-    max_trades_per_day_per_symbol: int = 1
-    max_daily_loss: float = -5000.0
-    stop_fill_priority: str = "stop"  # "stop" or "target" when both hit in same bar
-
-    # Broker Configuration
-    broker_name: str = "paper"  # "paper", "angel-one", or "dhan"
+    
+    # Strategy
+    breakout_time: str = "09:30:00"
+    first_30_start: str = "09:15:00"
+    first_30_end: str = "09:45:00"
+    initial_capital: float = 100000.0
+    max_risk_per_trade: float = 0.01
+    reward_to_risk: float = 2.0
+    min_r_value: float = 100.0
+    
+    # Broker (set one)
+    broker_name: str = "dhan"  # "angel-one" or "dhan"
     
     # Angel One
     angel_api_key: str = ""
@@ -29,6 +27,16 @@ class AppConfig:
     # Dhan
     dhan_client_id: str = "2602058043"
     dhan_access_token: str = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbkNvbnN1bWVyVHlwZSI6IlNFTEYiLCJwYXJ0bmVySWQiOiIiLCJkaGFuQ2xpZW50SWQiOiIyNjAyMDU4MDQzIiwid2ViaG9va1VybCI6Imh0dHBzOi8vYXBpLmRoYW4uY28vdjIiLCJpc3MiOiJkaGFuIiwiZXhwIjoxNzcwOTE3MjMzfQ.-MpDlASrh8WVbJtkwj2M-3IZ9LLwTl_YFC8D-cDaMtPwdOHYp1rWYqpvsyUZ94T1rVSuHdqpsxUY6ibUPOvIRA"
+    
+    # Trading Mode
+    trading_mode: str = "PAPER"  # "PAPER" or "LIVE" - ALWAYS starts in PAPER mode
+    require_confirmation: bool = True  # Require confirmation before placing orders in LIVE mode
+    
+    # Safety Limits
+    max_trades_per_day: int = 5
+    max_loss_per_day: float = 5000.0  # ₹5,000
+    max_position_size: float = 10000.0  # ₹10,000 per trade
+    max_positions_open: int = 3
 
 
 CONFIG = AppConfig()
