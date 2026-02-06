@@ -63,12 +63,31 @@ async def on_startup() -> None:
     app.state.live_engine = LiveEngine(app.state.manager, app.state.loop)
     app.state.aggregator = BarAggregator(pytz.timezone(CONFIG.timezone))
     ensure_watchlist([
-        "AXISBANK", "KERNEX", "SWSOLAR", "WEBELSOLAR", "ONGC", "DAVANGERE",
-        "OBEROIRLTY", "HINDALCO", "VOLTAS", "IRCTC", "AXISCADES", "THANGAMAYL",
-        "DELHIVERY", "UJJIVANSFB", "SILVERTUC", "V2RETAIL", "TORNTPOWER",
-        "TMB", "ASHOKLEY", "LICHSGFIN", "LTF", "SHRINGARMS", "DBREALTY",
-        "MOTILALOFS", "TRIL", "MIDWESTLTD", "ATL", "BANKBARODA", "SMLISUZU",
-        "EMBDL", "RBLBANK", "KAPSTON", "INFY", "NMDCSTEEL", "SHRIRAMFIN"
+        "ASHOKLEY",
+        "AXISBANK",
+        "BANKBARODA",
+        "BHARTIARTL",
+        "DELHIVERY",
+        "HDFCBANK",
+        "HINDALCO",
+        "HINDUNILVR",
+        "ICICIBANK",
+        "INFY",
+        "IRCTC",
+        "ITC",
+        "KOTAKBANK",
+        "LICHSGFIN",
+        "NMDCSTEEL",
+        "OBEROIRLTY",
+        "ONGC",
+        "RBLBANK",
+        "RELIANCE",
+        "SBIN",
+        "SHRIRAMFIN",
+        "TCS",
+        "TORNTPOWER",
+        "UJJIVANSFB",
+        "VOLTAS"
     ])
 
     # Start Dhan tick feed (for real-time quotes) if configured
