@@ -17,6 +17,7 @@ from .data_loader import load_csv_to_db
 from .db import clear_bars, clear_simulation_data, get_connection, init_db
 from .ingest import Bar, BarAggregator, insert_bar
 from .live_engine import ConnectionManager, LiveEngine
+from .dhan_marketfeed import DhanMarketFeed
 from .simulator import simulate
 from .watchlist import ensure_watchlist, load_watchlist, save_watchlist
 
@@ -69,6 +70,40 @@ async def on_startup() -> None:
         "MOTILALOFS", "TRIL", "MIDWESTLTD", "ATL", "BANKBARODA", "SMLISUZU",
         "EMBDL", "RBLBANK", "KAPSTON", "INFY", "NMDCSTEEL", "SHRIRAMFIN"
     ])
+
+    # Start Dhan tick feed (for real-time quotes) if configured
+    if CONFIG.broker_name == "dhan" and CONFIG.dhan_client_id and CONFIG.dhan_access_token:
+        symbols = load_watchlist()
+
+        def on_tick(symbol: str, price: float, ts: str, volume: float) -> None:
+            bar = app.state.aggregator.ingest_tick(
+                ts=ts,
+                symbol=symbol.upper(),
+                price=price,
+                volume=volume,
+            )
+            app.state.live_engine.update_quote(symbol.upper(), price, ts)
+            if bar:
+                insert_bar(bar)
+                app.state.live_engine.process_external_bar(asdict(bar))
+
+        app.state.market_feed = DhanMarketFeed(
+            client_id=CONFIG.dhan_client_id,
+            access_token=CONFIG.dhan_access_token,
+            security_map=app.state.live_engine.broker.security_map if app.state.live_engine.broker else {},
+            on_tick=on_tick,
+            timezone=CONFIG.timezone,
+        )
+        app.state.market_feed.start(symbols)
+    else:
+        app.state.market_feed = None
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    market_feed = getattr(app.state, "market_feed", None)
+    if market_feed:
+        market_feed.stop()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -284,6 +319,9 @@ def set_watchlist(payload: WatchlistIn) -> JSONResponse:
     if isinstance(symbols, str):
         symbols = [s.strip() for s in symbols.split(",") if s.strip()]
     saved = save_watchlist(list(symbols))
+    market_feed = getattr(app.state, "market_feed", None)
+    if market_feed:
+        market_feed.update_symbols(saved)
     return JSONResponse({"symbols": saved})
 
 

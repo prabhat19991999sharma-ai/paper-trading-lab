@@ -184,6 +184,14 @@ class LiveEngine:
             return
         asyncio.run_coroutine_threadsafe(self.manager.broadcast(payload), self.loop)
 
+    def update_quote(self, symbol: str, price: float, ts: Optional[str] = None) -> None:
+        """Update last quote and broadcast to UI."""
+        self.last_quotes[symbol] = float(price)
+        payload = {"type": "quote", "symbol": symbol, "price": float(price)}
+        if ts:
+            payload["ts"] = ts
+        self._broadcast(payload)
+
     def _run_loop(self) -> None:
         while not self.stop_event.is_set() and self.bar_index < len(self.bars):
             bar = self.bars[self.bar_index]
