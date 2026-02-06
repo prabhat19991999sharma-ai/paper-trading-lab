@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagnostics - Paper Trading Lab</title>
+    <style>
+        body {
+            background: #0a0e1a;
+            color: #f1f5f9;
+            font-family: monospace;
+            padding: 2rem;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #334155;
+        }
+
+        .status {
+            font-weight: bold;
+        }
+
+        .pass {
+            color: #10b981;
+        }
+
+        .fail {
+            color: #ef4444;
+        }
+
+        .pending {
+            color: #f59e0b;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        pre {
+            background: #0f172a;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🛠️ System Diagnostics</h1>
+    <p>Use this tool to verify if the Backend and APIs are working.</p>
+    <button onclick="runDiagnostics()">Run All Tests</button>
+
+    <div id="results"></div>
+
+    <script>
+        async function runTest(name, fn) {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `<h3>${name} <span class="status pending">⏳ Testing...</span></h3><pre id="log-${name}">...</pre>`;
+            document.getElementById('results').appendChild(div);
+
+            try {
+                const result = await fn();
+                div.querySelector('.status').textContent = '✅ PASS';
+                div.querySelector('.status').className = 'status pass';
+                document.getElementById(`log-${name}`).textContent = JSON.stringify(result, null, 2);
+            } catch (e) {
+                div.querySelector('.status').textContent = '❌ FAIL';
+                div.querySelector('.status').className = 'status fail';
+                document.getElementById(`log-${name}`).textContent = e.toString();
+            }
+        }
+
+        async function runDiagnostics() {
+            document.getElementById('results').innerHTML = '';
+
+            // Test 1: Health Check
+            await runTest('Backend Health (/health)', async () => {
+                const res = await fetch('/health');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            });
+
+            // Test 2: Funds API
+            await runTest('Funds API (/api/funds)', async () => {
+                const res = await fetch('/api/funds');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            });
+
+            // Test 3: Trading Limits
+            await runTest('Safety Limits (/api/trading/limits)', async () => {
+                const res = await fetch('/api/trading/limits');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            });
+
+            // Test 4: WebSocket
+            await runTest('WebSocket Connection', () => {
+                return new Promise((resolve, reject) => {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+                    const timeout = setTimeout(() => {
+                        ws.close();
+                        reject("Connection Timed Out (5s)");
+                    }, 5000);
+
+                    ws.onopen = () => {
+                        clearTimeout(timeout);
+                        ws.close();
+                        resolve({ connected: true });
+                    };
+
+                    ws.onerror = (e) => {
+                        clearTimeout(timeout);
+                        reject("WebSocket Error event fired");
+                    };
+                });
+            });
+        }
+
+        // Auto run on load
+        runDiagnostics();
+    </script>
+</body>
+
+</html>

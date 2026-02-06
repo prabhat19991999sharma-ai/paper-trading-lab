@@ -76,6 +76,16 @@ def index() -> str:
     return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/debug", response_class=HTMLResponse)
+def debug_page() -> str:
+    return (STATIC_DIR / "debug.html").read_text(encoding="utf-8")
+
+
+@app.get("/health")
+def health_check() -> JSONResponse:
+    return JSONResponse({"status": "ok", "timestamp": str(datetime.now())})
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     manager: ConnectionManager = app.state.manager
