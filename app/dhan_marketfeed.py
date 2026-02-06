@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import pytz
@@ -53,6 +53,7 @@ class DhanMarketFeed:
         self._last_tick_symbol: Optional[str] = None
         self._last_tick_price: Optional[float] = None
         self._last_data_time: Optional[str] = None
+        self._next_retry_time: Optional[str] = None
         self._subscribed_symbols: Set[str] = set()
         self._invalid_symbols: List[str] = []
 
@@ -123,6 +124,8 @@ class DhanMarketFeed:
                 self.feed.run_forever()
                 self._set_connected(True)
                 self._set_status("connected", "ok")
+                with self._lock:
+                    self._next_retry_time = None
                 retry_delay = 3
 
                 while self.running:
@@ -137,6 +140,7 @@ class DhanMarketFeed:
                 self._set_error(str(exc))
                 self._set_status(f"disconnected: {exc}", "danger")
                 retry_delay = self._next_backoff(retry_delay, str(exc))
+                self._set_next_retry_time(retry_delay)
                 time.sleep(retry_delay)
 
         try:
@@ -221,6 +225,11 @@ class DhanMarketFeed:
         with self._lock:
             self._last_data_time = datetime.now(self.tz).strftime("%Y-%m-%d %H:%M:%S")
 
+    def _set_next_retry_time(self, delay_seconds: int) -> None:
+        with self._lock:
+            when = datetime.now(self.tz) + timedelta(seconds=delay_seconds)
+            self._next_retry_time = when.strftime("%Y-%m-%d %H:%M:%S")
+
     def get_status(self) -> Dict[str, object]:
         with self._lock:
             return {
@@ -234,6 +243,7 @@ class DhanMarketFeed:
                 "last_tick_symbol": self._last_tick_symbol,
                 "last_tick_price": self._last_tick_price,
                 "last_data_time": self._last_data_time,
+                "next_retry_time": self._next_retry_time,
                 "subscribed_symbols": sorted(self._subscribed_symbols),
                 "subscribed_count": len(self._subscribed_symbols),
                 "invalid_symbols": list(self._invalid_symbols),
@@ -252,7 +262,7 @@ class DhanMarketFeed:
     @staticmethod
     def _next_backoff(current: int, error: str) -> int:
         # Increase backoff on rate limits; otherwise exponential to a max.
-        max_delay = 120
+        max_delay = 600
         if "HTTP 429" in error:
-            return min(max_delay, max(current, 30))
+            return min(max_delay, max(current, 600))
         return min(max_delay, max(3, current * 2))

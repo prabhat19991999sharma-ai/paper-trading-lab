@@ -156,10 +156,19 @@ function updateFeedStatusUI(data) {
   const errorText = data.last_error ? ` • ${data.last_error.slice(0, 80)}` : '';
   const invalidCount = Array.isArray(data.invalid_symbols) ? data.invalid_symbols.length : 0;
   const invalidText = invalidCount ? ` • Missing tokens: ${invalidCount}` : '';
+  const rateLimit = data.last_error && String(data.last_error).includes('HTTP 429');
+  const retryAt = data.next_retry_time ? data.next_retry_time.split(' ')[1] : null;
+  const rateText = rateLimit && retryAt ? ` • Retry at ${retryAt}` : '';
 
-  el.textContent = connected
-    ? `Feed: connected • ${lastTick}${invalidText}`
-    : `Feed: disconnected${errorText}`;
+  if (!connected && data.market_open === false) {
+    el.textContent = `Feed: market closed (IST 09:15-15:30)`;
+  } else if (!connected && rateLimit) {
+    el.textContent = `Feed: rate limited${rateText}`;
+  } else {
+    el.textContent = connected
+      ? `Feed: connected • ${lastTick}${invalidText}`
+      : `Feed: disconnected${errorText}`;
+  }
 
   el.classList.remove('ok', 'warn', 'danger');
   if (connected && !invalidCount) {
@@ -540,8 +549,30 @@ async function loadFeedStatus() {
     const data = await res.json();
     lastFeedStatus = data;
     updateFeedStatusUI(data);
+    updateMarketStatusUI(data);
   } catch (error) {
     console.error('Error loading feed status:', error);
+  }
+}
+
+function updateMarketStatusUI(data) {
+  const el = document.getElementById('marketStatus');
+  if (!el) return;
+
+  if (!data || typeof data.market_open === 'undefined') {
+    el.textContent = 'Market: unknown';
+    el.classList.remove('open', 'closed');
+    return;
+  }
+
+  if (data.market_open) {
+    el.textContent = `Market: Open (${data.market_session || '09:15-15:30'} IST)`;
+    el.classList.remove('closed');
+    el.classList.add('open');
+  } else {
+    el.textContent = `Market: Closed (${data.market_session || '09:15-15:30'} IST)`;
+    el.classList.remove('open');
+    el.classList.add('closed');
   }
 }
 

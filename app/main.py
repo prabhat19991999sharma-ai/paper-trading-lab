@@ -406,19 +406,21 @@ def get_funds() -> JSONResponse:
 @app.get("/api/debug/feed")
 def debug_feed_status() -> JSONResponse:
     market_feed = getattr(app.state, "market_feed", None)
+    market_info = _market_status()
     if not market_feed:
-        return JSONResponse(
-            {
-                "enabled": False,
-                "enabled_by_env": CONFIG.dhan_feed_enabled,
-                "configured": bool(CONFIG.dhan_client_id and CONFIG.dhan_access_token),
-                "status_message": "disabled",
-            }
-        )
+        payload = {
+            "enabled": False,
+            "enabled_by_env": CONFIG.dhan_feed_enabled,
+            "configured": bool(CONFIG.dhan_client_id and CONFIG.dhan_access_token),
+            "status_message": "disabled",
+        }
+        payload.update(market_info)
+        return JSONResponse(payload)
     data = market_feed.get_status()
     data["enabled"] = True
     data["enabled_by_env"] = CONFIG.dhan_feed_enabled
     data["configured"] = bool(CONFIG.dhan_client_id and CONFIG.dhan_access_token)
+    data.update(market_info)
     return JSONResponse(data)
 
 
@@ -564,3 +566,20 @@ def _auto_load_sample_data_if_empty() -> None:
         sample = DATA_DIR / "sample_bars.csv"
         if sample.exists():
             load_csv_to_db(sample)
+
+
+def _market_status() -> dict:
+    tz = pytz.timezone(CONFIG.timezone)
+    now = datetime.now(tz)
+    # NSE normal session: 09:15 - 15:30 IST, weekdays only.
+    open_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    is_weekday = now.weekday() < 5
+    is_open = is_weekday and open_time <= now <= close_time
+    return {
+        "market_open": is_open,
+        "market_status": "open" if is_open else "closed",
+        "market_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "market_timezone": CONFIG.timezone,
+        "market_session": "09:15-15:30",
+    }
