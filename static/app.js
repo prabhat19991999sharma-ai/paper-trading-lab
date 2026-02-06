@@ -15,18 +15,37 @@ function init() {
 
 function setupEventListeners() {
   // Trading mode toggle
-  document.getElementById('paperMode').addEventListener('click', () => setTradingMode('PAPER'));
-  document.getElementById('liveMode').addEventListener('click', () => setTradingMode('LIVE'));
+  const paperBtn = document.getElementById('paperMode');
+  const liveBtn = document.getElementById('liveMode');
+
+  if (paperBtn) {
+    paperBtn.addEventListener('click', () => {
+      console.log('Paper mode clicked');
+      setTradingMode('PAPER');
+    });
+  }
+
+  if (liveBtn) {
+    liveBtn.addEventListener('click', () => {
+      console.log('Live mode clicked');
+      setTradingMode('LIVE');
+    });
+  }
 
   // Kill switch
-  document.getElementById('killSwitchBtn').addEventListener('click', showKillSwitchModal);
+  const killBtn = document.getElementById('killSwitchBtn');
+  if (killBtn) {
+    killBtn.addEventListener('click', showKillSwitchModal);
+  }
 }
 
 // Trading Mode Management
 function setTradingMode(mode) {
+  console.log(`Setting trading mode to: ${mode}, Current: ${currentMode}`);
   if (mode === currentMode) return;
 
   if (mode === 'LIVE') {
+    console.log('Showing confirmation modal...');
     // Show confirmation modal for LIVE mode
     showModal(
       `Switch to LIVE trading mode?`,
