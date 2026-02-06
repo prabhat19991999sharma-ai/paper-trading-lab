@@ -28,7 +28,7 @@ class AppConfig:
     
     # Dhan
     dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "1104713239")
-    dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwX2lwIjoiIiwic19pcCI6IiIsImlzcyI6ImRoYW4iLCJwYXJ0bmVySWQiOiIiLCJleHAiOjE3NzA0MDU3NDIsImlhdCI6MTc3MDMxOTM0MiwidG9rZW5Db25zdW1lclR5cGUiOiJTRUxGIiwid2ViaG9va1VybCI6Imh0dHBzOi8vc2FuZGJveC5kaGFuLmNvL3YyIiwiZGhhbkNsaWVudElkIjoiMTEwNDcxMzIzOSJ9.WHGqdRcjcNuIDegjEOKEoOaYpyqmoNSPDrGPyacLXQPGj0T8WZTGJSI7cVTRSgveRqMzwCe6mcu7V3CJtyvvjA")
+    dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzcwNDQ1MTU0LCJpYXQiOjE3NzAzNTg3NTQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTA0NzEzMjM5In0.L0Uh269x2cpgOsLzG5RZMWWlFpPoUHpxdL_SJVkdBLaNHwQdi8M8zXtmm-5gM-fWtqF3WVGL3hXieMcEOgZXNw")
     
     # Trading Mode
     trading_mode: str = "PAPER"  # "PAPER" or "LIVE" - ALWAYS starts in PAPER mode
