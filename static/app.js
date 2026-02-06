@@ -2,6 +2,7 @@
 let currentMode = 'PAPER';
 let pendingAction = null;
 let ws = null;
+let lastFeedStatus = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
@@ -30,6 +31,12 @@ function setupEventListeners() {
       console.log('Live mode clicked');
       setTradingMode('LIVE');
     });
+  }
+
+  // Feed control
+  const feedToggleBtn = document.getElementById('feedToggleBtn');
+  if (feedToggleBtn) {
+    feedToggleBtn.addEventListener('click', toggleFeed);
   }
 
   // Kill switch
@@ -129,6 +136,7 @@ function updateFeedStatusUI(data) {
     el.textContent = 'Feed: disabled';
     el.classList.remove('ok', 'warn', 'danger');
     el.classList.add('warn');
+    updateFeedToggleUI(data);
     return;
   }
 
@@ -136,6 +144,7 @@ function updateFeedStatusUI(data) {
     el.textContent = 'Feed: stopped';
     el.classList.remove('ok', 'warn', 'danger');
     el.classList.add('warn');
+    updateFeedToggleUI(data);
     return;
   }
 
@@ -159,6 +168,8 @@ function updateFeedStatusUI(data) {
   } else {
     el.classList.add('danger');
   }
+
+  updateFeedToggleUI(data);
 }
 
 // Kill Switch
@@ -525,9 +536,56 @@ async function loadFeedStatus() {
   try {
     const res = await fetch('/api/debug/feed');
     const data = await res.json();
+    lastFeedStatus = data;
     updateFeedStatusUI(data);
   } catch (error) {
     console.error('Error loading feed status:', error);
+  }
+}
+
+function updateFeedToggleUI(data) {
+  const btn = document.getElementById('feedToggleBtn');
+  if (!btn) return;
+
+  if (!data || data.enabled === false) {
+    btn.textContent = 'Feed Disabled';
+    btn.disabled = true;
+    return;
+  }
+
+  btn.disabled = false;
+  if (data.running === false) {
+    btn.textContent = 'Start Feed';
+  } else {
+    btn.textContent = 'Stop Feed';
+  }
+}
+
+async function toggleFeed() {
+  const data = lastFeedStatus;
+  if (!data || data.enabled === false) {
+    showStatus('Feed is disabled via config', 'warning');
+    return;
+  }
+
+  try {
+    const endpoint = data.running === false ? '/api/feed/start' : '/api/feed/stop';
+    const res = await fetch(endpoint, { method: 'POST' });
+    const result = await res.json();
+    if (result.success) {
+      showStatus(result.message || 'Feed updated', 'success');
+      if (result.status) {
+        lastFeedStatus = { ...data, ...result.status, enabled: true };
+        updateFeedStatusUI(lastFeedStatus);
+      } else {
+        loadFeedStatus();
+      }
+    } else {
+      showStatus(result.message || 'Failed to update feed', 'danger');
+    }
+  } catch (error) {
+    console.error('Error toggling feed:', error);
+    showStatus('Error toggling feed', 'danger');
   }
 }
 
