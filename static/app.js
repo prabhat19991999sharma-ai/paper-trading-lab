@@ -3,6 +3,7 @@ let currentMode = 'PAPER';
 let pendingAction = null;
 let ws = null;
 let lastFeedStatus = null;
+const lastQuoteTimes = {};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
@@ -433,6 +434,7 @@ function renderWatchlist(symbols) {
         <div class="watchlist-item">
             <div class="watchlist-symbol">${symbol}</div>
             <div class="watchlist-price" id="price-${symbol}">-</div>
+            <div class="watchlist-time" id="time-${symbol}">Last: -</div>
         </div>
     `).join('');
 
@@ -470,11 +472,7 @@ function connectWebSocket() {
 
 function handleWebSocketMessage(data) {
   if (data.type === 'quote') {
-    // Update watchlist price
-    const priceEl = document.getElementById(`price-${data.symbol}`);
-    if (priceEl) {
-      priceEl.textContent = `₹${data.price.toFixed(2)}`;
-    }
+    updateQuoteUI(data.symbol, data.price, data.ts);
   } else if (data.type === 'trade') {
     refreshOrders();
     refreshPositions();
@@ -497,6 +495,7 @@ function loadInitialData() {
   loadFunds();
   loadLiveStatus();
   loadFeedStatus();
+  loadMarketQuotes();
 }
 
 function startDataRefresh() {
@@ -512,6 +511,9 @@ function startDataRefresh() {
 
   // Refresh orders every 10 seconds
   setInterval(refreshOrders, 10000);
+
+  // Refresh last quotes every 15 seconds (fallback if websocket drops)
+  setInterval(loadMarketQuotes, 15000);
 }
 
 // Live status / broker connectivity
@@ -540,6 +542,45 @@ async function loadFeedStatus() {
     updateFeedStatusUI(data);
   } catch (error) {
     console.error('Error loading feed status:', error);
+  }
+}
+
+function updateQuoteUI(symbol, price, ts) {
+  if (!symbol) return;
+  const key = String(symbol).toUpperCase();
+  const priceEl = document.getElementById(`price-${key}`);
+  if (priceEl && typeof price === 'number') {
+    priceEl.textContent = `₹${price.toFixed(2)}`;
+  }
+
+  let timeText = '';
+  if (ts) {
+    const parts = String(ts).split(' ');
+    timeText = parts.length > 1 ? parts[1] : String(ts);
+  } else {
+    timeText = new Date().toLocaleTimeString();
+  }
+  lastQuoteTimes[key] = timeText;
+
+  const timeEl = document.getElementById(`time-${key}`);
+  if (timeEl) {
+    timeEl.textContent = `Last: ${timeText}`;
+  }
+}
+
+async function loadMarketQuotes() {
+  try {
+    const res = await fetch('/api/market/quotes');
+    const data = await res.json();
+    const quotes = data && data.quotes ? data.quotes : data;
+    if (!quotes || typeof quotes !== 'object') return;
+    Object.entries(quotes).forEach(([symbol, price]) => {
+      if (typeof price === 'number') {
+        updateQuoteUI(symbol, price, lastQuoteTimes[String(symbol).toUpperCase()]);
+      }
+    });
+  } catch (error) {
+    console.error('Error loading market quotes:', error);
   }
 }
 
