@@ -69,6 +69,12 @@ class DhanMarketFeed:
         self.running = False
         self._set_connected(False)
         self._set_status("stopped", "warn")
+        # Try to close websocket to unblock the reader loop.
+        if self.feed and getattr(self.feed, "ws", None):
+            try:
+                asyncio.run_coroutine_threadsafe(self.feed.ws.close(), self.feed.loop)
+            except Exception:
+                pass
 
     def update_symbols(self, symbols: Iterable[str]) -> None:
         new_symbols = {s.upper() for s in symbols}

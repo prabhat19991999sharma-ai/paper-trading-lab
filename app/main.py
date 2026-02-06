@@ -388,10 +388,64 @@ def get_funds() -> JSONResponse:
 def debug_feed_status() -> JSONResponse:
     market_feed = getattr(app.state, "market_feed", None)
     if not market_feed:
-        return JSONResponse({"enabled": False, "status_message": "disabled"})
+        return JSONResponse(
+            {
+                "enabled": False,
+                "enabled_by_env": CONFIG.dhan_feed_enabled,
+                "configured": bool(CONFIG.dhan_client_id and CONFIG.dhan_access_token),
+                "status_message": "disabled",
+            }
+        )
     data = market_feed.get_status()
     data["enabled"] = True
+    data["enabled_by_env"] = CONFIG.dhan_feed_enabled
+    data["configured"] = bool(CONFIG.dhan_client_id and CONFIG.dhan_access_token)
     return JSONResponse(data)
+
+
+@app.post("/api/feed/start")
+def start_feed() -> JSONResponse:
+    if not (CONFIG.dhan_client_id and CONFIG.dhan_access_token):
+        return JSONResponse({"success": False, "message": "Dhan credentials missing"})
+
+    market_feed = getattr(app.state, "market_feed", None)
+    if market_feed and market_feed.running:
+        return JSONResponse({"success": True, "message": "already running", "status": market_feed.get_status()})
+
+    if not market_feed:
+        def on_tick(symbol: str, price: float, ts: str, volume: float) -> None:
+            bar = app.state.aggregator.ingest_tick(
+                ts=ts,
+                symbol=symbol.upper(),
+                price=price,
+                volume=volume,
+            )
+            app.state.live_engine.update_quote(symbol.upper(), price, ts)
+            if bar:
+                insert_bar(bar)
+                app.state.live_engine.process_external_bar(asdict(bar))
+
+        market_feed = DhanMarketFeed(
+            client_id=CONFIG.dhan_client_id,
+            access_token=CONFIG.dhan_access_token,
+            security_map=app.state.live_engine.broker.security_map if app.state.live_engine.broker else {},
+            on_tick=on_tick,
+            timezone=CONFIG.timezone,
+            version=CONFIG.dhan_feed_version,
+        )
+        app.state.market_feed = market_feed
+
+    market_feed.start(load_watchlist())
+    return JSONResponse({"success": True, "message": "started", "status": market_feed.get_status()})
+
+
+@app.post("/api/feed/stop")
+def stop_feed() -> JSONResponse:
+    market_feed = getattr(app.state, "market_feed", None)
+    if not market_feed:
+        return JSONResponse({"success": True, "message": "already stopped"})
+    market_feed.stop()
+    return JSONResponse({"success": True, "message": "stopped", "status": market_feed.get_status()})
 
 
 @app.get("/api/trades")

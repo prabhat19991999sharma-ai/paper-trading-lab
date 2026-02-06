@@ -132,6 +132,13 @@ function updateFeedStatusUI(data) {
     return;
   }
 
+  if (data.running === false) {
+    el.textContent = 'Feed: stopped';
+    el.classList.remove('ok', 'warn', 'danger');
+    el.classList.add('warn');
+    return;
+  }
+
   const connected = Boolean(data.connected);
   const lastTick = data.last_tick_time
     ? `Last: ${data.last_tick_symbol || '-'} @ ${data.last_tick_time.split(' ')[1]}`
