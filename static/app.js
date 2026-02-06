@@ -4,7 +4,7 @@ let pendingAction = null;
 let ws = null;
 
 // Initialize on page load
-document.addEventListener('DOM ContentLoaded', init);
+document.addEventListener('DOMContentLoaded', init);
 
 function init() {
   setupEventListeners();
