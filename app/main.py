@@ -189,6 +189,37 @@ def market_quotes() -> JSONResponse:
     return JSONResponse(app.state.live_engine.last_quotes)
 
 
+@app.get("/api/market/close")
+def market_close(symbols: Optional[str] = None) -> JSONResponse:
+    engine = app.state.live_engine
+    if symbols:
+        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    else:
+        symbol_list = load_watchlist()
+
+    closes: dict[str, float] = {}
+    sources: dict[str, str] = {}
+
+    if engine and engine.broker:
+        try:
+            broker_closes = engine.broker.get_last_closes(symbol_list)
+            for symbol, price in broker_closes.items():
+                closes[symbol] = price
+                sources[symbol] = "dhan"
+        except Exception:
+            pass
+
+    missing = [s for s in symbol_list if s not in closes]
+    if missing:
+        db_closes = _get_db_last_closes(missing)
+        for symbol, price in db_closes.items():
+            closes[symbol] = price
+            sources[symbol] = "db"
+
+    still_missing = [s for s in symbol_list if s not in closes]
+    return JSONResponse({"closes": closes, "sources": sources, "missing": still_missing})
+
+
 @app.get("/api/live/status")
 def live_status() -> JSONResponse:
     payload = app.state.live_engine.status()
@@ -583,3 +614,30 @@ def _market_status() -> dict:
         "market_timezone": CONFIG.timezone,
         "market_session": "09:15-15:30",
     }
+
+
+def _get_db_last_closes(symbols: list[str]) -> dict[str, float]:
+    if not symbols:
+        return {}
+    conn = get_connection()
+    cur = conn.cursor()
+    results: dict[str, float] = {}
+    for symbol in symbols:
+        cur.execute(
+            """
+            SELECT close
+            FROM bars
+            WHERE symbol = ?
+            ORDER BY ts DESC
+            LIMIT 1;
+            """,
+            (symbol,),
+        )
+        row = cur.fetchone()
+        if row and row["close"] is not None:
+            try:
+                results[symbol] = float(row["close"])
+            except (TypeError, ValueError):
+                pass
+    conn.close()
+    return results

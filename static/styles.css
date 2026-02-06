@@ -651,6 +651,12 @@ tbody tr:hover {
   color: var(--text-muted);
 }
 
+.watchlist-close {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
 .watchlist-item:hover {
   background: rgba(15, 23, 42, 0.8);
   border-color: var(--color-purple);

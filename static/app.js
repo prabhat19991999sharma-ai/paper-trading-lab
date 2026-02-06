@@ -444,6 +444,7 @@ function renderWatchlist(symbols) {
             <div class="watchlist-symbol">${symbol}</div>
             <div class="watchlist-price" id="price-${symbol}">-</div>
             <div class="watchlist-time" id="time-${symbol}">Last: -</div>
+            <div class="watchlist-close" id="close-${symbol}">Close: -</div>
         </div>
     `).join('');
 
@@ -505,6 +506,7 @@ function loadInitialData() {
   loadLiveStatus();
   loadFeedStatus();
   loadMarketQuotes();
+  loadMarketClose();
 }
 
 function startDataRefresh() {
@@ -523,6 +525,9 @@ function startDataRefresh() {
 
   // Refresh last quotes every 15 seconds (fallback if websocket drops)
   setInterval(loadMarketQuotes, 15000);
+
+  // Refresh last close every 5 minutes
+  setInterval(loadMarketClose, 300000);
 }
 
 // Live status / broker connectivity
@@ -612,6 +617,23 @@ async function loadMarketQuotes() {
     });
   } catch (error) {
     console.error('Error loading market quotes:', error);
+  }
+}
+
+async function loadMarketClose() {
+  try {
+    const res = await fetch('/api/market/close');
+    const data = await res.json();
+    const closes = data && data.closes ? data.closes : {};
+    Object.entries(closes).forEach(([symbol, price]) => {
+      const key = String(symbol).toUpperCase();
+      const closeEl = document.getElementById(`close-${key}`);
+      if (closeEl && typeof price === 'number') {
+        closeEl.textContent = `Close: ₹${price.toFixed(2)}`;
+      }
+    });
+  } catch (error) {
+    console.error('Error loading market close:', error);
   }
 }
 

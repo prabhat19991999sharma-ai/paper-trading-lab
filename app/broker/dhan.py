@@ -205,3 +205,88 @@ class DhanBroker(BaseBroker):
         except Exception as e:
             self.logger.error(f"Failed to get orders: {e}")
             return []
+
+    def get_last_closes(self, symbols: List[str]) -> Dict[str, float]:
+        """Get last close prices for symbols using Dhan quote_data."""
+        if not symbols:
+            return {}
+        if not self.api:
+            if not self.connect():
+                return {}
+
+        # Build token list
+        token_by_symbol = {}
+        for symbol in symbols:
+            token = self.get_token(symbol)
+            if token:
+                token_by_symbol[symbol.upper()] = str(token)
+
+        if not token_by_symbol:
+            return {}
+
+        symbol_by_token = {v: k for k, v in token_by_symbol.items()}
+        results: Dict[str, float] = {}
+
+        tokens = list(token_by_symbol.values())
+        batch_size = 50
+        for i in range(0, len(tokens), batch_size):
+            batch = tokens[i:i + batch_size]
+            payload = {"NSE_EQ": [int(t) for t in batch]}
+            response = self.api.quote_data(payload)
+            if not isinstance(response, dict) or response.get("status") != "success":
+                continue
+            data = response.get("data")
+            for item in self._iter_quote_items(data):
+                sec_id = self._extract_security_id(item)
+                if not sec_id:
+                    continue
+                symbol = symbol_by_token.get(str(sec_id))
+                if not symbol:
+                    continue
+                close = self._extract_close_price(item)
+                if close is not None:
+                    results[symbol] = close
+
+        return results
+
+    @staticmethod
+    def _iter_quote_items(data: object):
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    yield item
+            return
+        if isinstance(data, dict):
+            # If payload has a "data" key, unwrap it.
+            inner = data.get("data") if "data" in data else None
+            if isinstance(inner, list):
+                for item in inner:
+                    if isinstance(item, dict):
+                        yield item
+                return
+            if isinstance(inner, dict):
+                for _, item in inner.items():
+                    if isinstance(item, dict):
+                        yield item
+                return
+            # Otherwise assume dict-of-items
+            for _, item in data.items():
+                if isinstance(item, dict):
+                    yield item
+
+    @staticmethod
+    def _extract_security_id(item: dict) -> Optional[str]:
+        for key in ("securityId", "security_id", "securityID", "securityid", "token", "instrumentToken"):
+            if key in item and item[key] is not None:
+                return str(item[key])
+        return None
+
+    @staticmethod
+    def _extract_close_price(item: dict) -> Optional[float]:
+        for key in ("close", "previousClose", "prev_close", "prevClose", "lastClose", "closePrice"):
+            if key in item and item[key] is not None:
+                try:
+                    return float(item[key])
+                except (TypeError, ValueError):
+                    continue
+        return None
