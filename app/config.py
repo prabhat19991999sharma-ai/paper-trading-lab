@@ -30,6 +30,7 @@ class AppConfig:
     dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "")
     dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "")
     dhan_feed_version: str = os.getenv("DHAN_FEED_VERSION", "v2")
+    dhan_feed_enabled: bool = os.getenv("DHAN_FEED_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
     
     # Trading Mode
     trading_mode: str = "PAPER"  # "PAPER" or "LIVE" - ALWAYS starts in PAPER mode

@@ -72,7 +72,12 @@ async def on_startup() -> None:
     ])
 
     # Start Dhan tick feed (for real-time quotes) if configured
-    if CONFIG.broker_name == "dhan" and CONFIG.dhan_client_id and CONFIG.dhan_access_token:
+    if (
+        CONFIG.broker_name == "dhan"
+        and CONFIG.dhan_client_id
+        and CONFIG.dhan_access_token
+        and CONFIG.dhan_feed_enabled
+    ):
         symbols = load_watchlist()
 
         def on_tick(symbol: str, price: float, ts: str, volume: float) -> None:
