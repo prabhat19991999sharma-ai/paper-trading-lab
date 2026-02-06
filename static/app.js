@@ -69,8 +69,9 @@ async function confirmTradingMode(mode) {
     const data = await res.json();
 
     if (data.success) {
-      currentMode = mode;
-      updateModeUI(mode);
+      currentMode = (data.mode || mode).toUpperCase();
+      updateModeUI(currentMode);
+      loadLiveStatus();
       showStatus(`Switched to ${mode} mode`, mode === 'LIVE' ? 'warning' : 'success');
     } else {
       showStatus(data.message || 'Failed to switch mode', 'danger');
@@ -96,6 +97,27 @@ function updateModeUI(mode) {
     indicator.classList.remove('live');
     paperBtn.classList.add('active');
     liveBtn.classList.remove('active');
+  }
+}
+
+function updateLiveStatusUI(data) {
+  const el = document.getElementById('liveStatus');
+  if (!el || !data) return;
+
+  const mode = (data.trading_mode || 'PAPER').toUpperCase();
+  const brokerConnected = Boolean(data.broker_connected);
+  const engineMode = data.mode || 'idle';
+  const engineState = data.running ? 'running' : 'idle';
+
+  el.textContent = `Mode: ${mode} • Broker: ${brokerConnected ? 'Connected' : 'Not connected'} • Engine: ${engineMode} (${engineState})`;
+
+  el.classList.remove('ok', 'warn', 'danger');
+  if (mode === 'LIVE' && !brokerConnected) {
+    el.classList.add('danger');
+  } else if (mode === 'LIVE') {
+    el.classList.add('ok');
+  } else {
+    el.classList.add('warn');
   }
 }
 
@@ -410,6 +432,7 @@ function handleWebSocketMessage(data) {
     loadFunds();
   } else if (data.type === 'status') {
     updateModeUI(data.trading_mode || 'PAPER');
+    updateLiveStatusUI(data);
   }
 }
 
@@ -421,6 +444,7 @@ function loadInitialData() {
   loadStats();
   loadWatchlist();
   loadFunds();
+  loadLiveStatus();
 }
 
 function startDataRefresh() {
@@ -430,10 +454,28 @@ function startDataRefresh() {
     refreshPositions();
     loadStats();
     loadFunds();
+    loadLiveStatus();
   }, 5000);
 
   // Refresh orders every 10 seconds
   setInterval(refreshOrders, 10000);
+}
+
+// Live status / broker connectivity
+async function loadLiveStatus() {
+  try {
+    const res = await fetch('/api/live/status');
+    const data = await res.json();
+    if (data) {
+      if (data.trading_mode) {
+        currentMode = data.trading_mode.toUpperCase();
+        updateModeUI(currentMode);
+      }
+      updateLiveStatusUI(data);
+    }
+  } catch (error) {
+    console.error('Error loading live status:', error);
+  }
 }
 
 function toggleWatchlistEdit() {
