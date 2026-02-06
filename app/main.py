@@ -93,6 +93,7 @@ async def on_startup() -> None:
             security_map=app.state.live_engine.broker.security_map if app.state.live_engine.broker else {},
             on_tick=on_tick,
             timezone=CONFIG.timezone,
+            version=CONFIG.dhan_feed_version,
         )
         app.state.market_feed.start(symbols)
     else:

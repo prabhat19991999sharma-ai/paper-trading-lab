@@ -32,7 +32,7 @@ class DhanMarketFeed:
         self.security_map = security_map
         self.on_tick = on_tick
         self.on_status = on_status
-        self.version = version
+        self.version = self._normalize_version(version)
         self.tz = pytz.timezone(timezone)
 
         self.running = False
@@ -230,3 +230,12 @@ class DhanMarketFeed:
                 "invalid_symbols": list(self._invalid_symbols),
                 "version": self.version,
             }
+
+    @staticmethod
+    def _normalize_version(version: str) -> str:
+        value = (version or "v2").strip().lower()
+        if value in {"2", "v2"}:
+            return "v2"
+        if value in {"1", "v1"}:
+            return "v1"
+        return "v2"
