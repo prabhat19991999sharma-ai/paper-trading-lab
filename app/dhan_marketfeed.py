@@ -109,6 +109,7 @@ class DhanMarketFeed:
             return
 
         self.feed = DhanFeed(self.client_id, self.access_token, instruments, version=self.version)
+        retry_delay = 3
 
         while self.running:
             try:
@@ -116,6 +117,7 @@ class DhanMarketFeed:
                 self.feed.run_forever()
                 self._set_connected(True)
                 self._set_status("connected", "ok")
+                retry_delay = 3
 
                 while self.running:
                     data = self.feed.get_data()
@@ -128,7 +130,8 @@ class DhanMarketFeed:
                 self._set_connected(False)
                 self._set_error(str(exc))
                 self._set_status(f"disconnected: {exc}", "danger")
-                time.sleep(3)
+                retry_delay = self._next_backoff(retry_delay, str(exc))
+                time.sleep(retry_delay)
 
         try:
             if self.feed:
@@ -239,3 +242,11 @@ class DhanMarketFeed:
         if value in {"1", "v1"}:
             return "v1"
         return "v2"
+
+    @staticmethod
+    def _next_backoff(current: int, error: str) -> int:
+        # Increase backoff on rate limits; otherwise exponential to a max.
+        max_delay = 120
+        if "HTTP 429" in error:
+            return min(max_delay, max(current, 30))
+        return min(max_delay, max(3, current * 2))
