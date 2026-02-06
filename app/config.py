@@ -27,8 +27,8 @@ class AppConfig:
     angel_totp_key: str = os.getenv("ANGEL_TOTP_KEY", "")
     
     # Dhan
-    dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "1104713239")
-    dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzcwNDQ1MTU0LCJpYXQiOjE3NzAzNTg3NTQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTA0NzEzMjM5In0.L0Uh269x2cpgOsLzG5RZMWWlFpPoUHpxdL_SJVkdBLaNHwQdi8M8zXtmm-5gM-fWtqF3WVGL3hXieMcEOgZXNw")
+    dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "")
+    dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "")
     
     # Trading Mode
     trading_mode: str = "PAPER"  # "PAPER" or "LIVE" - ALWAYS starts in PAPER mode
