@@ -83,6 +83,14 @@ body::before {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -167,6 +175,38 @@ body::before {
 }
 
 .live-status.danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.feed-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.feed-status.ok {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.feed-status.warn {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.feed-status.danger {
   background: rgba(239, 68, 68, 0.15);
   border-color: var(--color-danger);
   color: var(--color-danger);

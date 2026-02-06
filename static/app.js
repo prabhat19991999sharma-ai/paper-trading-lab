@@ -121,6 +121,39 @@ function updateLiveStatusUI(data) {
   }
 }
 
+function updateFeedStatusUI(data) {
+  const el = document.getElementById('feedStatus');
+  if (!el) return;
+
+  if (!data || data.enabled === false) {
+    el.textContent = 'Feed: disabled';
+    el.classList.remove('ok', 'warn', 'danger');
+    el.classList.add('warn');
+    return;
+  }
+
+  const connected = Boolean(data.connected);
+  const lastTick = data.last_tick_time
+    ? `Last: ${data.last_tick_symbol || '-'} @ ${data.last_tick_time.split(' ')[1]}`
+    : 'Last: -';
+  const errorText = data.last_error ? ` • ${data.last_error.slice(0, 80)}` : '';
+  const invalidCount = Array.isArray(data.invalid_symbols) ? data.invalid_symbols.length : 0;
+  const invalidText = invalidCount ? ` • Missing tokens: ${invalidCount}` : '';
+
+  el.textContent = connected
+    ? `Feed: connected • ${lastTick}${invalidText}`
+    : `Feed: disconnected${errorText}`;
+
+  el.classList.remove('ok', 'warn', 'danger');
+  if (connected && !invalidCount) {
+    el.classList.add('ok');
+  } else if (connected && invalidCount) {
+    el.classList.add('warn');
+  } else {
+    el.classList.add('danger');
+  }
+}
+
 // Kill Switch
 function showKillSwitchModal() {
   document.getElementById('killSwitchModal').classList.add('show');
@@ -445,6 +478,7 @@ function loadInitialData() {
   loadWatchlist();
   loadFunds();
   loadLiveStatus();
+  loadFeedStatus();
 }
 
 function startDataRefresh() {
@@ -455,6 +489,7 @@ function startDataRefresh() {
     loadStats();
     loadFunds();
     loadLiveStatus();
+    loadFeedStatus();
   }, 5000);
 
   // Refresh orders every 10 seconds
@@ -475,6 +510,17 @@ async function loadLiveStatus() {
     }
   } catch (error) {
     console.error('Error loading live status:', error);
+  }
+}
+
+// Market feed status
+async function loadFeedStatus() {
+  try {
+    const res = await fetch('/api/debug/feed');
+    const data = await res.json();
+    updateFeedStatusUI(data);
+  } catch (error) {
+    console.error('Error loading feed status:', error);
   }
 }
 

@@ -166,7 +166,13 @@ def market_quotes() -> JSONResponse:
 
 @app.get("/api/live/status")
 def live_status() -> JSONResponse:
-    return JSONResponse(app.state.live_engine.status())
+    payload = app.state.live_engine.status()
+    market_feed = getattr(app.state, "market_feed", None)
+    if market_feed:
+        payload["market_feed"] = market_feed.get_status()
+    else:
+        payload["market_feed"] = {"running": False, "connected": False, "status_message": "disabled"}
+    return JSONResponse(payload)
 
 
 @app.post("/api/live/start")
@@ -370,6 +376,16 @@ def get_funds() -> JSONResponse:
         
     # Fallback to simulated equity
     return JSONResponse({"available_balance": engine.equity if engine else CONFIG.initial_capital})
+
+
+@app.get("/api/debug/feed")
+def debug_feed_status() -> JSONResponse:
+    market_feed = getattr(app.state, "market_feed", None)
+    if not market_feed:
+        return JSONResponse({"enabled": False, "status_message": "disabled"})
+    data = market_feed.get_status()
+    data["enabled"] = True
+    return JSONResponse(data)
 
 
 @app.get("/api/trades")

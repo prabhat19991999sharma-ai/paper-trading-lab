@@ -43,23 +43,41 @@ class DhanMarketFeed:
         self.symbol_by_token: Dict[str, str] = {
             str(token): symbol.upper() for symbol, token in security_map.items()
         }
+        self._lock = threading.Lock()
+        self._connected = False
+        self._status_message = "idle"
+        self._status_level = "warn"
+        self._status_time: Optional[str] = None
+        self._last_error: Optional[str] = None
+        self._last_tick_time: Optional[str] = None
+        self._last_tick_symbol: Optional[str] = None
+        self._last_tick_price: Optional[float] = None
+        self._last_data_time: Optional[str] = None
+        self._subscribed_symbols: Set[str] = set()
+        self._invalid_symbols: List[str] = []
 
     def start(self, symbols: Iterable[str]) -> None:
         if self.running:
             return
         self.symbols = {s.upper() for s in symbols}
+        self._set_status("starting", "warn")
         self.running = True
         self.thread = threading.Thread(target=self._run, daemon=True, name="DhanMarketFeed")
         self.thread.start()
 
     def stop(self) -> None:
         self.running = False
+        self._set_connected(False)
+        self._set_status("stopped", "warn")
 
     def update_symbols(self, symbols: Iterable[str]) -> None:
         new_symbols = {s.upper() for s in symbols}
         added = new_symbols - self.symbols
         removed = self.symbols - new_symbols
         self.symbols = new_symbols
+
+        # Update subscription tracking
+        self._build_instruments(new_symbols, record=True)
 
         if not self.feed or not self.running:
             return
@@ -84,9 +102,9 @@ class DhanMarketFeed:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        instruments = self._build_instruments(self.symbols)
+        instruments = self._build_instruments(self.symbols, record=True)
         if not instruments:
-            self._status("Dhan feed not started: no valid symbols found.")
+            self._set_status("Dhan feed not started: no valid symbols found.", "danger")
             self.running = False
             return
 
@@ -94,15 +112,22 @@ class DhanMarketFeed:
 
         while self.running:
             try:
+                self._set_status("connecting", "warn")
                 self.feed.run_forever()
-                self._status("Dhan feed connected.")
+                self._set_connected(True)
+                self._set_status("connected", "ok")
 
                 while self.running:
                     data = self.feed.get_data()
+                    self._set_last_data_time()
+                    if getattr(self.feed, "on_close", False):
+                        raise ConnectionError("Server disconnected")
                     if data:
                         self._handle_data(data)
             except Exception as exc:
-                self._status(f"Dhan feed error: {exc}")
+                self._set_connected(False)
+                self._set_error(str(exc))
+                self._set_status(f"disconnected: {exc}", "danger")
                 time.sleep(3)
 
         try:
@@ -111,12 +136,23 @@ class DhanMarketFeed:
         except Exception:
             pass
 
-    def _build_instruments(self, symbols: Iterable[str]) -> List[Tuple[int, str]]:
+    def _build_instruments(
+        self,
+        symbols: Iterable[str],
+        record: bool = False,
+    ) -> List[Tuple[int, str]]:
         instruments: List[Tuple[int, str]] = []
+        invalid: List[str] = []
         for symbol in symbols:
             token = self.security_map.get(symbol.upper())
             if token:
                 instruments.append((marketfeed.NSE, str(token)))
+            else:
+                invalid.append(symbol.upper())
+        if record:
+            with self._lock:
+                self._invalid_symbols = sorted(set(invalid))
+                self._subscribed_symbols = {s.upper() for s in symbols if s.upper() not in self._invalid_symbols}
         return instruments
 
     def _handle_data(self, data: object) -> None:
@@ -141,14 +177,56 @@ class DhanMarketFeed:
             return
 
         ts = datetime.now(self.tz).strftime("%Y-%m-%d %H:%M:%S")
+        self._set_last_tick(symbol, price, ts)
         try:
             self.on_tick(symbol, price, ts, 0.0)
         except Exception:
             pass
 
-    def _status(self, message: str) -> None:
+    def _set_status(self, message: str, level: str) -> None:
         if self.on_status:
             try:
                 self.on_status(message)
             except Exception:
                 pass
+        with self._lock:
+            self._status_message = message
+            self._status_level = level
+            self._status_time = datetime.now(self.tz).strftime("%Y-%m-%d %H:%M:%S")
+
+    def _set_connected(self, value: bool) -> None:
+        with self._lock:
+            self._connected = value
+
+    def _set_error(self, message: str) -> None:
+        with self._lock:
+            self._last_error = message
+
+    def _set_last_tick(self, symbol: str, price: float, ts: str) -> None:
+        with self._lock:
+            self._last_tick_symbol = symbol
+            self._last_tick_price = price
+            self._last_tick_time = ts
+
+    def _set_last_data_time(self) -> None:
+        with self._lock:
+            self._last_data_time = datetime.now(self.tz).strftime("%Y-%m-%d %H:%M:%S")
+
+    def get_status(self) -> Dict[str, object]:
+        with self._lock:
+            return {
+                "running": self.running,
+                "connected": self._connected,
+                "status_message": self._status_message,
+                "status_level": self._status_level,
+                "status_time": self._status_time,
+                "last_error": self._last_error,
+                "last_tick_time": self._last_tick_time,
+                "last_tick_symbol": self._last_tick_symbol,
+                "last_tick_price": self._last_tick_price,
+                "last_data_time": self._last_data_time,
+                "subscribed_symbols": sorted(self._subscribed_symbols),
+                "subscribed_count": len(self._subscribed_symbols),
+                "invalid_symbols": list(self._invalid_symbols),
+                "version": self.version,
+            }
