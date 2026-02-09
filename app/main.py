@@ -483,6 +483,23 @@ def stop_feed() -> JSONResponse:
     return JSONResponse({"success": True, "message": "stopped", "status": market_feed.get_status()})
 
 
+@app.get("/api/debug/dhan-auth")
+def debug_dhan_auth() -> JSONResponse:
+    """Validate Dhan credentials with a lightweight API call."""
+    engine = app.state.live_engine
+    if not engine or not engine.broker:
+        return JSONResponse({"ok": False, "message": "broker not initialized"})
+
+    try:
+        # Quick auth check via funds
+        funds = engine.broker.get_funds()
+        if funds is None:
+            return JSONResponse({"ok": False, "message": "no response from broker"})
+        return JSONResponse({"ok": True, "funds": funds})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "message": str(exc)})
+
+
 @app.get("/api/trades")
 def trades(date: Optional[str] = None) -> JSONResponse:
     conn = get_connection()
