@@ -110,21 +110,16 @@ class Backtester:
         if stats.realized_pnl <= CONFIG.max_daily_loss:
             return None
         
-        # === CAPTURE 9:30 HIGH ===
-        if local_time == self.breakout_time:
-            state.high_930 = float(bar["high"])
-        
-        # === CAPTURE FIRST 30 MIN HIGH ===
+        # === CAPTURE 9:15-09:30 HIGH ===
         if self.first_30_start <= local_time <= self.first_30_end:
             if state.high_30 is None:
                 state.high_30 = float(bar["high"])
             else:
                 state.high_30 = max(state.high_30, float(bar["high"]))
-        
-        # === ENTRY LOGIC ===
-        if state.open_trade is None and state.high_930 and state.high_30:
+
+        # === ENTRY LOGIC (after 09:30) ===
+        if state.open_trade is None and state.high_30 and local_time > self.breakout_time:
             if (state.trades_today < CONFIG.max_trades_per_day_per_symbol and
-                float(bar["close"]) > state.high_930 and
                 float(bar["close"]) > state.high_30):
                 
                 entry_price = float(bar["close"])

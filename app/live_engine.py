@@ -263,14 +263,12 @@ class LiveEngine:
         if stats.realized_pnl <= CONFIG.max_daily_loss:
             return None
 
-        if local_time == self.breakout_time:
-            state.high_930 = float(bar["high"])
-
         if self.first_30_start <= local_time <= self.first_30_end:
             state.high_30 = float(bar["high"]) if state.high_30 is None else max(state.high_30, float(bar["high"]))
 
-        if state.open_trade is None and state.high_930 and state.high_30:
-            if state.trades_today < CONFIG.max_trades_per_day_per_symbol and float(bar["close"]) > state.high_930 and float(bar["close"]) > state.high_30:
+        # Entry only after 09:30, breakout above session high (09:15-09:30)
+        if state.open_trade is None and state.high_30 and local_time > self.breakout_time:
+            if state.trades_today < CONFIG.max_trades_per_day_per_symbol and float(bar["close"]) > state.high_30:
                 # SAFETY CHECK
                 allowed, reason = self.safety.is_trading_allowed()
                 if not allowed:

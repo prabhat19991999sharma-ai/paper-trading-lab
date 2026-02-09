@@ -132,14 +132,11 @@ def simulate(symbols: Optional[List[str]] = None) -> Dict[str, float]:
         if stats.realized_pnl <= CONFIG.max_daily_loss:
             continue
 
-        if local_time == breakout_time:
-            state.high_930 = float(bar["high"])
-
         if first_30_start <= local_time <= first_30_end:
             state.high_30 = float(bar["high"]) if state.high_30 is None else max(state.high_30, float(bar["high"]))
 
-        if state.open_trade is None and state.high_930 and state.high_30:
-            if state.trades_today < CONFIG.max_trades_per_day_per_symbol and float(bar["close"]) > state.high_930 and float(bar["close"]) > state.high_30:
+        if state.open_trade is None and state.high_30 and local_time > breakout_time:
+            if state.trades_today < CONFIG.max_trades_per_day_per_symbol and float(bar["close"]) > state.high_30:
                 entry_price = float(bar["close"])
                 stop_loss = float(bar["low"])
                 qty = _risk_limited_qty(entry_price, stop_loss, equity)

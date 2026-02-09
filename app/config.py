@@ -11,10 +11,10 @@ class AppConfig:
     # Strategy
     breakout_time: str = "09:30:00"
     first_30_start: str = "09:15:00"
-    first_30_end: str = "09:45:00"
+    first_30_end: str = "09:30:00"
     initial_capital: float = 100000.0
     max_risk_per_trade: float = 0.01
-    reward_to_risk: float = 2.0
+    reward_to_risk: float = 1.5
     min_r_value: float = 100.0
     
     # Broker (set one)
@@ -41,6 +41,15 @@ class AppConfig:
     max_loss_per_day: float = 5000.0  # ₹5,000
     max_position_size: float = 10000.0  # ₹10,000 per trade
     max_positions_open: int = 3
+
+    # Compatibility fields used by engines/backtester
+    max_risk_pct: float = max_risk_per_trade
+    max_position_pct: float = 0.10  # ~10% of equity (matches max_position_size/initial_capital)
+    risk_reward: float = reward_to_risk
+    max_trades_per_day_global: int = max_trades_per_day
+    max_trades_per_day_per_symbol: int = 1
+    max_daily_loss: float = max_loss_per_day
+    stop_fill_priority: str = "stop"
 
 
 CONFIG = AppConfig()
