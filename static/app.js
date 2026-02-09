@@ -4,6 +4,7 @@ let pendingAction = null;
 let ws = null;
 let lastFeedStatus = null;
 const lastQuoteTimes = {};
+let lastBrokerQuoteAt = 0;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
@@ -601,7 +602,17 @@ function updateQuoteUI(symbol, price, ts) {
 
 async function loadMarketQuotes() {
   try {
-    const res = await fetch('/api/market/quotes');
+    const useBrokerFallback = lastFeedStatus && lastFeedStatus.connected === false && lastFeedStatus.market_open === true;
+    if (useBrokerFallback) {
+      const now = Date.now();
+      if (now - lastBrokerQuoteAt < 30000) {
+        return;
+      }
+      lastBrokerQuoteAt = now;
+    }
+
+    const url = useBrokerFallback ? '/api/market/quotes?source=broker' : '/api/market/quotes';
+    const res = await fetch(url);
     const data = await res.json();
     const quotes = data && data.quotes ? data.quotes : data;
     if (!quotes || typeof quotes !== 'object') return;

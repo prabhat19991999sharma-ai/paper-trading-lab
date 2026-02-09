@@ -185,8 +185,22 @@ def status() -> JSONResponse:
 
 
 @app.get("/api/market/quotes")
-def market_quotes() -> JSONResponse:
-    return JSONResponse(app.state.live_engine.last_quotes)
+def market_quotes(source: Optional[str] = None, symbols: Optional[str] = None) -> JSONResponse:
+    engine = app.state.live_engine
+    symbol_list = (
+        [s.strip().upper() for s in symbols.split(",") if s.strip()]
+        if symbols
+        else load_watchlist()
+    )
+
+    if source == "broker" and engine and engine.broker:
+        try:
+            quotes = engine.broker.get_quotes(symbol_list)
+            return JSONResponse({"quotes": quotes, "source": "broker"})
+        except Exception:
+            pass
+
+    return JSONResponse({"quotes": engine.last_quotes if engine else {}, "source": "cache"})
 
 
 @app.get("/api/live/status")
@@ -583,4 +597,3 @@ def _market_status() -> dict:
         "market_timezone": CONFIG.timezone,
         "market_session": "09:15-15:30",
     }
-
