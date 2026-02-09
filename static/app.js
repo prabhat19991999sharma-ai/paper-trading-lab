@@ -441,7 +441,7 @@ function renderWatchlist(symbols) {
   const container = document.getElementById('watchlistGrid');
 
   const html = symbols.map(symbol => `
-        <div class="watchlist-item">
+        <div class="watchlist-item" onclick="initTradingViewWidget('${symbol}')" style="cursor: pointer;">
             <div class="watchlist-symbol">${symbol}</div>
             <div class="watchlist-price" id="price-${symbol}">-</div>
             <div class="watchlist-time" id="time-${symbol}">Last: -</div>
@@ -677,3 +677,80 @@ function toggleWatchlistEdit() {
   // TODO: Implement watchlist editing
   showStatus('Watchlist editing coming soon!', 'info');
 }
+
+// ----------------------------------------------------
+// TradingView Widget Integration
+// ----------------------------------------------------
+let tvWidget = null;
+
+function loadTradingViewScript() {
+  return new Promise((resolve, reject) => {
+    if (document.getElementById('tv-widget-script')) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'tv-widget-script';
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+async function initTradingViewWidget(symbol = 'NSE:NIFTY') {
+  try {
+    await loadTradingViewScript();
+
+    // Ensure symbol format (TradingView usually expects EXCHANGE:SYMBOL)
+    // If symbol doesn't have exchange, assume NSE
+    let tvSymbol = symbol;
+    if (!tvSymbol.includes(':')) {
+      tvSymbol = 'NSE:' + tvSymbol;
+    }
+
+    document.getElementById('chartSymbol').textContent = `(${tvSymbol})`;
+
+    if (tvWidget) {
+      // If we could update the existing widget, that would be better, 
+      // but the basic library often requires re-initialization or using the iframe method.
+      // For the basic library:
+      new TradingView.widget({
+        "autosize": true,
+        "symbol": tvSymbol,
+        "interval": "5",
+        "timezone": "Asia/Kolkata",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart"
+      });
+    } else {
+      new TradingView.widget({
+        "autosize": true,
+        "symbol": tvSymbol,
+        "interval": "5",
+        "timezone": "Asia/Kolkata",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart"
+      });
+      tvWidget = true; // Mark as initialized
+    }
+  } catch (e) {
+    console.error("Failed to load TradingView widget", e);
+    showStatus("Failed to load chart", "danger");
+  }
+}
+
+// Initialize chart on load
+document.addEventListener('DOMContentLoaded', () => {
+  // Wait for watchlist to load or just init default
+  setTimeout(() => initTradingViewWidget('NSE:NIFTY'), 1000);
+});
